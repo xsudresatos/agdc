@@ -53,7 +53,7 @@ from landsat_dataset import LandsatDataset
 #
 
 logging.basicConfig(stream=sys.stdout,
-                    format='%(message)s',
+                    format='%(asctime)s %(name)s %(levelname)s %(message)s',
                     level=logging.INFO)
 
 #

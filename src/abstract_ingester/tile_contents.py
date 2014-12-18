@@ -178,13 +178,10 @@ class TileContents(object):
         temp_tile_output_path = self.nc_temp_tile_output_path or self.temp_tile_output_path
 
         # Read/write caching (in MB)
-        GDAL_CACHEMAX_MB = 500
-        # Working buffers (in MB)
-        GDAL_WM_MB = 500
+        GDAL_CACHEMAX_MB = 250
 
         reproject_cmd = ["gdalwarp",
                          '--config', 'GDAL_CACHEMAX', str(GDAL_CACHEMAX_MB),
-                         '-wm', str(GDAL_WM_MB),
                          "-q",
                          "-of",
                          "%s" % self.tile_type_info['file_format'],

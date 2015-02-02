@@ -45,7 +45,7 @@ _log = logging.getLogger()
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     config = Config(os.path.expanduser("~/.datacube/config"))
     _log.debug(config.to_str())

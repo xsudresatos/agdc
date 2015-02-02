@@ -86,11 +86,11 @@ class Config:
 
     def get_DbCredentials(self):
         return DbCredentials( \
-            self.get_db_host,
-            self.get_db_port,
-            self.get_db_database,
-            self.get_db_username,
-            self.get_db_password )
+            self.get_db_host(),
+            self.get_db_port(),
+            self.get_db_database(),
+            self.get_db_username(),
+            self.get_db_password() )
 
     # NOTE: This currently points to the datacube "DEV" server
     # Override by providing your own config file - for e.g. in $HOME/.datacube/.config
@@ -115,5 +115,9 @@ class DbCredentials(object):
         self.database = database
         self.user = user
         self.password = password
+
+    def __str__(self):
+        return "DbCredentials: host=%s,port=%d,database=%s,user=%s,password=%s" % \
+            (self.host, self.port, self.database, self.user, self.password)
         
 

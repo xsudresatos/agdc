@@ -1243,12 +1243,12 @@ class TimeInterval(object):
             TimeInterval(end_datetime=datetime(2013,1,1)) # all time up to the end of 2012
             TimeInterval() # all time (forever), aka: TimeInterval not specified
         """
-        assert(instanceof(start_datetime, datetime))
-        assert(instanceof(end_datetime, datetime))
+        assert(isinstance(start_datetime, datetime))
+        assert(isinstance(end_datetime, datetime))
         assert(end_datetime > start_datetime)
 
         self.start = start_datetime
-        self.end = start_end
+        self.end = end_datetime
 
 class DatacubeQueryContext(object):
     """
@@ -1261,18 +1261,19 @@ class DatacubeQueryContext(object):
         """
         self.db_credentials = db_credentials
 
-    def list_tiles(x_list, y_list, satellite_list, time_interval, dataset_list, sort=SortType.ASC):
-        return list_tiles( \
+    def tile_list(self, x_list, y_list, satellite_list, time_interval, dataset_list, sort=SortType.ASC):
+        print str(self.db_credentials)
+        return list_tiles_as_list( \
             x_list, \
             y_list, \
             satellite_list, \
             time_interval.start, \
             time_interval.end, \
             dataset_list, \
-            database=db_credentials.database, \
-            user=db_credentials.username, \
-            password=db_credentials.password, \
-            host=db_credentials.host, \
-            port=db_credentials.port, \
+            database=self.db_credentials.database, \
+            user=self.db_credentials.user, \
+            password=self.db_credentials.password, \
+            host=self.db_credentials.host, \
+            port=self.db_credentials.port, \
             sort=sort)
 

@@ -37,7 +37,7 @@ import psycopg2
 import psycopg2.extras
 import sys
 from model import Tile, Cell
-
+from datetime import datetime
 
 _log = logging.getLogger(__name__)
 
@@ -1087,3 +1087,63 @@ def list_tiles_wkt_to_file(wkt, years, datasets, format, filename, database, use
 
 def visit_tiles_wkt(wkt, years, datasets, database, user, password, host=None, port=None):
     pass
+
+
+class TimeInterval(object):
+    """
+    A TimeInterval represents an interval of time from a start instant up to (but not including)
+    an end instant. Instants are represented by datetime objects. Inspired by the Java JODA package.
+    """
+   
+    # define constants for the beginning and end of time
+    # NOTE: we could get rid of these but the SQL gets a bit messy
+
+    MIN_INSTANT = datetime(1900, 1, 1)
+    MAX_INSTANT = datetime(3999, 1, 1)
+       
+
+    def __init__(self, start_datetime=MIN_INSTANT, end_datetime=MAX_INSTANT):
+        """
+        Construct a TimeInterval object from the supplied start and end datetime instances.
+        Closed and open ended intervals (forwards and backwards) are supported, as is the "unspecified 
+        interval" consisting of all time (the "give me everything you've got" interval).
+
+        e.g:
+            TimeInterval(datetime(2013,1,1), datetime(2015,12,31))  # three years from 1/1/13
+            TimeInterval(datetime(2013,1,1))   # all time beginning from 1/1/13
+            TimeInterval(end_datetime=datetime(2013,1,1)) # all time up to the end of 2012
+            TimeInterval() # all time (forever), aka: TimeInterval not specified
+        """
+        assert(instanceof(start_datetime, datetime))
+        assert(instanceof(end_datetime, datetime))
+        assert(end_datetime > start_datetime)
+
+        self.start = start_datetime
+        self.end = start_end
+
+class DatacubeQueryContext(object):
+    """
+    An instance of DatacubeQueryContext provides the ablility to query a selected Datacube
+    """
+
+    def __init__(self, db_credentials):
+        """
+        Instantiate a new DatacubeQueryContext using the supplied DbCredentials object
+        """
+        self.db_credentials = db_credentials
+
+    def list_tiles(x_list, y_list, satellite_list, time_interval, dataset_list, sort=SortType.ASC):
+        return list_tiles( \
+            x_list, \
+            y_list, \
+            satellite_list, \
+            time_interval.start, \
+            time_interval.end, \
+            dataset_list, \
+            database=db_credentials.database, \
+            user=db_credentials.username, \
+            password=db_credentials.password, \
+            host=db_credentials.host, \
+            port=db_credentials.port, \
+            sort=sort)
+

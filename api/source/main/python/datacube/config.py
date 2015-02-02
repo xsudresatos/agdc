@@ -84,6 +84,14 @@ class Config:
     def to_str(self):
         return [(k.value, self._get_string(Config.Section.DATABASE, k)) for k in Config.DatabaseKey]
 
+    def get_DbCredentials(self):
+        return DbCredentials( \
+            self.get_db_host,
+            self.get_db_port,
+            self.get_db_database,
+            self.get_db_username,
+            self.get_db_password )
+
     # NOTE: This currently points to the datacube "DEV" server
     # Override by providing your own config file - for e.g. in $HOME/.datacube/.config
 
@@ -95,4 +103,17 @@ database: hypercube_v0
 username: cube_user
 password: GAcube0
 """
+
+class DbCredentials(object):
+    """
+    Class to hold all DbConnection credentials
+    """
+
+    def __init__(self, host, port, database, user, password):
+        self.host = host
+        self.port = port
+        self.database = database
+        self.user = user
+        self.password = password
+        
 

@@ -91,7 +91,7 @@ def do_list_tiles_dtm_by_xy_single(config):
                            host=config.get_db_host(), port=config.get_db_port())
 
     for tile in tiles:
-        _log.info("Found tile xy = %s acq date = [%s] NBAR = [%s]", tile.xy, tile.end_datetime, tile.datasets[DatasetType.DSM].path)
+        _log.info("Found tile xy = %s acq date = [%s] DSM = [%s]", tile.xy, tile.end_datetime, tile.datasets[DatasetType.DSM].path)
 
 
 def do_list_cells_by_xy_single(config):

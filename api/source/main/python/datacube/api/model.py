@@ -26,6 +26,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # ===============================================================================
+import os
 
 
 __author__ = "Simon Oldfield"
@@ -157,8 +158,11 @@ class DatasetType(Enum):
     NBR = "NBR"
 
 
-dataset_type_database = [DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25, DatasetType.DSM, DatasetType.DEM, DatasetType.DEM_HYDROLOGICALLY_ENFORCED, DatasetType.DEM_SMOOTHED]
-dataset_type_filesystem = [DatasetType.WATER]
+dataset_type_database = [DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25,
+                         DatasetType.WATER,
+                         DatasetType.DSM,
+                         DatasetType.DEM, DatasetType.DEM_HYDROLOGICALLY_ENFORCED, DatasetType.DEM_SMOOTHED]
+dataset_type_filesystem = []
 dataset_type_derived_nbar = [DatasetType.NDVI, DatasetType.EVI, DatasetType.NBR] # TCI, SAVI, etc...
 
 
@@ -187,6 +191,16 @@ class DatasetTile:
         for dataset in datasets:
             dst = DatasetTile(satellite_id, dataset[0], dataset[1])
             out[dst.dataset_type] = dst
+
+        # TODO DODGINESS until WOFS is ingested into the database
+
+        # Construct a WOFS dataset based on the NBAR dataset
+        # If one exists on the filesystem then add it otherwise (None is returned by the make_wofs_dataset) we don't
+
+        dst = make_wofs_dataset(satellite_id, out[DatasetType.ARG25])
+
+        if dst:
+            out[DatasetType.WATER] = dst
 
         return out
 
@@ -319,8 +333,6 @@ class Tile:
             datasets=DatasetTile.from_db_array(record["satellite"], record["datasets"]))
 
 
-# TODO Need to deal with the fact that some datasets don't have a satellite and stuff
-
 BANDS = {
     (DatasetType.ARG25, Satellite.LS5): Ls57Arg25Bands,
     (DatasetType.ARG25, Satellite.LS7): Ls57Arg25Bands,
@@ -366,3 +378,35 @@ def parse_datetime(s):
     from datetime import datetime
     return datetime.strptime(s[:len("YYYY-MM-DD HH:MM:SS")], "%Y-%m-%d %H:%M:%S")
 
+
+# TODO TEMPORARY UNTIL WOFS IS AVAILABLE AS INGESTED DATA
+def make_wofs_dataset(satellite_id, nbar):
+    fields = os.path.basename(nbar.path).split("_")
+
+    satellite = fields[0]
+
+    if satellite_id == Satellite.LS8.value:
+        # LS8_OLI_TIRS_NBAR_123_-025_2013-04-24T01-46-06.vrt
+        sensor = fields[1] + "_" + fields[2]
+
+        x = int(fields[4])
+        y = int(fields[5])
+
+        dt = fields[5].replace(".vrt", "").replace(".tif", "")
+
+    else:
+        # LS5_TM_NBAR_123_-025_2005-11-21T01-27-04.570000.tif
+        # LS7_ETM_NBAR_123_-025_2005-11-29T01-28-07.511491.tif
+        sensor = fields[1]
+
+        x = int(fields[3])
+        y = int(fields[4])
+
+        dt = fields[5].replace(".vrt", "").replace(".tif", "")
+
+    path = "/g/data/u46/wofs/water_f7q/extents/{x:03d}_{y:04d}/{satellite}_{sensor}_WATER_{x:03d}_{y:04d}_{date}.tif".format(x=x, y=y, satellite=satellite, sensor=sensor, date=dt)
+
+    if os.path.isfile(path):
+        return DatasetTile(satellite, DatasetType.WATER.value, path)
+
+    return None

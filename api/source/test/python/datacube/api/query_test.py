@@ -25,7 +25,7 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#===============================================================================
+# ===============================================================================
 
 
 __author__ = "Simon Oldfield"
@@ -50,10 +50,12 @@ def main():
     config = Config(os.path.expanduser("~/.datacube/config"))
     _log.debug(config.to_str())
 
-    do_list_tiles_by_xy_single(config)
+    find_missing_wofs_tiles(config)
+
+    # do_list_tiles_by_xy_single(config)
     # do_list_cells_by_xy_single(config)
 
-    do_list_tiles_dtm_by_xy_single(config)
+    # do_list_tiles_dtm_by_xy_single(config)
 
     # do_list_tiles_by_xy_multiple(config)
     # do_list_cells_by_xy_multiple(config)
@@ -68,10 +70,26 @@ def main():
 # Records DB -> model classes
 
 
+def find_missing_wofs_tiles(config):
+    _log.info("Finding missing WOFS water extent tiles...")
+    tiles = list_tiles(x=range(110, 155+1), y=range(-55, -10+1),
+                       acq_min=date(1980, 1, 1), acq_max=date(2020, 12, 31), satellites=[Satellite.LS5, Satellite.LS7],
+                       #acq_min=date(2013, 1, 1), acq_max=date(2013, 12, 31), satellites=[Satellite.LS8],
+                       datasets=[DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25, DatasetType.WATER],
+                       database=config.get_db_database(), user=config.get_db_username(),
+                       password=config.get_db_password(),
+                       host=config.get_db_host(), port=config.get_db_port())
+
+    for tile in tiles:
+        if DatasetType.WATER not in tile.datasets:
+            _log.info("No WOFS extent found for xy = %s acq date = [%s] NBAR = [%s]", tile.xy, tile.end_datetime, tile.datasets[DatasetType.ARG25].path)
+
+
 def do_list_tiles_by_xy_single(config):
     _log.info("Testing list_tiles...")
-    tiles = list_tiles(x=[123], y=[-25], acq_min=date(2002, 1, 1), acq_max=date(2002 ,12, 31),
-                       satellites=[Satellite.LS7],
+    tiles = list_tiles(x=[123], y=[-25],
+                       acq_min=date(2005, 1, 1), acq_max=date(2005, 12, 31), satellites=[Satellite.LS5, Satellite.LS7],
+                       #acq_min=date(2013, 1, 1), acq_max=date(2013, 12, 31), satellites=[Satellite.LS8],
                        datasets=[DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25],
                        database=config.get_db_database(), user=config.get_db_username(),
                        password=config.get_db_password(),
@@ -79,6 +97,8 @@ def do_list_tiles_by_xy_single(config):
 
     for tile in tiles:
         _log.info("Found tile xy = %s acq date = [%s] NBAR = [%s]", tile.xy, tile.end_datetime, tile.datasets[DatasetType.ARG25].path)
+        _log.info("Found tile xy = %s acq date = [%s] WOFS = [%s]", tile.xy, tile.end_datetime,
+                  DatasetType.WATER in tile.datasets and tile.datasets[DatasetType.WATER].path or "---")
 
 
 def do_list_tiles_dtm_by_xy_single(config):

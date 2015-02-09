@@ -25,14 +25,13 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# ===============================================================================
+#===============================================================================
 
-BASE_DIR="/g/data/u46/sjo/clean_pixel/LS8/geoserver/2014-12-31"
+BASE_DIR="/g/data/u46/sjo/geoserver/bare_soil"
 
-PBS_SCRIPT="$HOME/source/agdc-api/api-examples/source/main/python/landsat_mosaic_pyramid.pbs.sh"
+PBS_SCRIPT="${BASE_DIR}/bare_soil_pyramid.pbs.sh"
 
-#for i in DATE NBAR SAT
-for i in NBAR
+for i in EPOCH FC MONTH NBAR SAT YEAR
 do
 	qsub -v dir="${BASE_DIR}/${i}/pyramid" "${PBS_SCRIPT}"
 done

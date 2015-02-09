@@ -1,8 +1,8 @@
 #!/bin/bash
-#PBS -N clean_pyramid
+#PBS -N soil_pyramid
 #PBS -P u46
 #PBS -q normal
-#PBS -l ncpus=1,mem=2GB
+#PBS -l ncpus=2,mem=8GB
 #PBS -l wd
 #PBS -l other=gdata1
 

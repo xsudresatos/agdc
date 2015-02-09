@@ -36,10 +36,11 @@ import argparse
 import csv
 import logging
 import luigi
+import os.path
 from datacube.config import Config
 from datacube.api.model import DatasetType, Tile, Satellite
 from datacube.api.query import list_cells, list_tiles_to_file, list_tiles, SortType
-import os.path
+from datacube.api.utils import PqaMask
 
 
 _log = logging.getLogger()
@@ -49,6 +50,12 @@ def satellite_arg(s):
     if s in Satellite._member_names_:
         return Satellite[s]
     raise argparse.ArgumentTypeError("{0} is not a supported satellite".format(s))
+
+
+def pqa_mask_arg(s):
+    if s in PqaMask._member_names_:
+        return PqaMask[s]
+    raise argparse.ArgumentTypeError("{0} is not a supported PQA mask".format(s))
 
 
 def writeable_dir(prospective_dir):
@@ -105,7 +112,9 @@ class SummaryTask(luigi.Task):
     csv = luigi.BooleanParameter()
     dummy = luigi.BooleanParameter()
     save_input_files = luigi.BooleanParameter()
-    apply_pq_filter = luigi.BooleanParameter()
+
+    mask_pqa_apply = luigi.BooleanParameter()
+    mask_pqa_mask = luigi.Parameter(is_list=True)
 
     def requires(self):
         _log.debug("SummaryTask.requires()")
@@ -148,7 +157,9 @@ class CellTask(luigi.Task):
     csv = luigi.BooleanParameter()
     dummy = luigi.BooleanParameter()
     save_input_files = luigi.BooleanParameter()
-    apply_pq_filter = luigi.BooleanParameter()
+
+    mask_pqa_apply = luigi.BooleanParameter()
+    mask_pqa_mask = luigi.Parameter(is_list=True)
 
     def output(self):
         _log.debug("CellTask.output()")
@@ -282,8 +293,10 @@ class Workflow(object):
     csv = None
     dummy = None
     save_input_files = None
-    apply_pq_filter = None
     local_scheduler = None
+
+    mask_pqa_apply = None
+    mask_pqa_mask = None
 
     def __init__(self, application_name):
         self.application_name = application_name
@@ -329,8 +342,11 @@ class Workflow(object):
         parser.add_argument("--save-input-files", help="Save input files for future reference", action="store_true",
                             dest="save_input_files", default=False)
 
-        parser.add_argument("--skip-pq", help="Skip applying PQ to datasets", action="store_false", dest="pqfilter",
-                            default=True)
+        parser.add_argument("--mask-pqa-apply", help="Apply PQA mask", action="store_true", dest="mask_pqa_apply",
+                            default=False)
+        parser.add_argument("--mask-pqa-mask", help="The PQA mask to apply", action="store", dest="mask_pqa_mask",
+                            type=pqa_mask_arg, nargs="+", choices=PqaMask, default=[PqaMask.PQ_MASK_CLEAR],
+                            metavar=" ".join([s.name for s in PqaMask]))
 
         parser.add_argument("--local-scheduler", help="Use local luigi scheduler rather than MPI", action="store_true",
                             dest="local_scheduler", default=False)
@@ -402,7 +418,10 @@ class Workflow(object):
         self.csv = args.csv
         self.dummy = args.dummy
         self.save_input_files = args.save_input_files
-        self.apply_pq_filter = args.pqfilter
+
+        self.mask_pqa_apply = args.mask_pqa_apply
+        self.mask_pqa_mask = args.mask_pqa_mask
+
         self.local_scheduler = args.local_scheduler
 
         _log.debug("""
@@ -416,14 +435,15 @@ class Workflow(object):
         csv = {csv}
         dummy = {dummy}
         save input files = {save_input_files}
-        apply PQ filter = {apply_pq_filter}
+        PQA filter = {pqa_mask}
         local scheduler = {local_scheduler}
         """.format(x_min=self.x_min, x_max=self.x_max, y_min=self.y_min, y_max=self.y_max,
                    acq_min=self.acq_min, acq_max=self.acq_max,
                    process_min=self.process_min, process_max=self.process_max,
                    ingest_min=self.ingest_min, ingest_max=self.ingest_max,
                    satellites=self.satellites, output_directory=self.output_directory, csv=self.csv, dummy=self.dummy,
-                   save_input_files=self.save_input_files, apply_pq_filter=self.apply_pq_filter,
+                   save_input_files=self.save_input_files,
+                   pqa_mask=self.mask_pqa_apply and self.mask_pqa_mask or "",
                    local_scheduler=self.local_scheduler))
 
 

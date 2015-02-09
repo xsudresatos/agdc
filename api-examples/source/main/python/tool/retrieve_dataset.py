@@ -26,7 +26,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # ===============================================================================
-import subprocess
 
 
 __author__ = "Simon Oldfield"
@@ -37,9 +36,11 @@ import gdal
 import itertools
 import logging
 import os
+import subprocess
 from datacube.api.model import DatasetType, Satellite, dataset_type_database, dataset_type_derived_nbar, BANDS
 from datacube.api.query import list_tiles
-from datacube.api.utils import PqaMask, raster_create, intersection, calculate_ndvi, calculate_evi, calculate_nbr
+from datacube.api.utils import raster_create, intersection, calculate_ndvi, calculate_evi, calculate_nbr, union
+from datacube.api.utils import PqaMask, WofsMask
 from datacube.api.utils import get_dataset_data, get_dataset_data_with_pq, get_dataset_metadata, NDV
 from datacube.api.workflow import writeable_dir
 from datacube.config import Config
@@ -58,6 +59,12 @@ def pqa_mask_arg(s):
     if s in PqaMask._member_names_:
         return PqaMask[s]
     raise argparse.ArgumentTypeError("{0} is not a supported PQA mask".format(s))
+
+
+def wofs_mask_arg(s):
+    if s in WofsMask._member_names_:
+        return WofsMask[s]
+    raise argparse.ArgumentTypeError("{0} is not a supported WOFS mask".format(s))
 
 
 def dataset_type_arg(s):
@@ -84,8 +91,11 @@ class DatasetRetrievalWorkflow():
 
     satellites = None
 
-    apply_pqa_filter = None
-    pqa_mask = None
+    mask_pqa_apply = None
+    mask_pqa_mask = None
+
+    mask_wofs_apply = None
+    mask_wofs_mask = None
 
     dataset_types = None
 
@@ -121,11 +131,20 @@ class DatasetRetrievalWorkflow():
         # parser.add_argument("--ingest-max", help="Ingest Date", action="store", dest="ingest_max", type=str)
 
         parser.add_argument("--satellite", help="The satellite(s) to include", action="store", dest="satellite",
-                            type=satellite_arg, nargs="+", choices=Satellite, default=[Satellite.LS5, Satellite.LS7], metavar=" ".join([s.name for s in Satellite]))
+                            type=satellite_arg, nargs="+", choices=Satellite, default=[Satellite.LS5, Satellite.LS7],
+                            metavar=" ".join([s.name for s in Satellite]))
 
-        parser.add_argument("--apply-pqa", help="Apply PQA mask", action="store_true", dest="apply_pqa", default=False)
-        parser.add_argument("--pqa-mask", help="The PQA mask to apply", action="store", dest="pqa_mask",
-                            type=pqa_mask_arg, nargs="+", choices=PqaMask, default=[PqaMask.PQ_MASK_CLEAR], metavar=" ".join([s.name for s in PqaMask]))
+        parser.add_argument("--mask-pqa-apply", help="Apply PQA mask", action="store_true", dest="mask_pqa_apply",
+                            default=False)
+        parser.add_argument("--mask-pqa-mask", help="The PQA mask to apply", action="store", dest="mask_pqa_mask",
+                            type=pqa_mask_arg, nargs="+", choices=PqaMask, default=[PqaMask.PQ_MASK_CLEAR],
+                            metavar=" ".join([s.name for s in PqaMask]))
+
+        parser.add_argument("--mask-wofs-apply", help="Apply WOFS mask", action="store_true", dest="mask_wofs_apply",
+                            default=False)
+        parser.add_argument("--mask-wofs-mask", help="The WOFS mask to apply", action="store", dest="mask_wofs_mask",
+                            type=wofs_mask_arg, nargs="+", choices=WofsMask, default=[WofsMask.WET],
+                            metavar=" ".join([s.name for s in WofsMask]))
 
         supported_dataset_types = dataset_type_database + dataset_type_derived_nbar
 
@@ -133,14 +152,17 @@ class DatasetRetrievalWorkflow():
                             dest="dataset_type",
                             type=dataset_type_arg,
                             nargs="+",
-                            choices=supported_dataset_types, default=DatasetType.ARG25, metavar=" ".join([s.name for s in supported_dataset_types]))
+                            choices=supported_dataset_types, default=DatasetType.ARG25,
+                            metavar=" ".join([s.name for s in supported_dataset_types]))
 
         parser.add_argument("--output-directory", help="Output directory", action="store", dest="output_directory",
                             type=writeable_dir, required=True)
 
-        parser.add_argument("--overwrite", help="Over write existing output file", action="store_true", dest="overwrite", default=False)
+        parser.add_argument("--overwrite", help="Over write existing output file", action="store_true",
+                            dest="overwrite", default=False)
 
-        parser.add_argument("--list-only", help="List the datasets that would be retrieved rather than retrieving them", action="store_true", dest="list_only", default=False)
+        parser.add_argument("--list-only", help="List the datasets that would be retrieved rather than retrieving them",
+                            action="store_true", dest="list_only", default=False)
 
         # parser.add_argument("--stack-vrt", help="Create a band stack VRT", action="store_true", dest="stack_vrt", default=False)
 
@@ -200,8 +222,11 @@ class DatasetRetrievalWorkflow():
 
         self.satellites = args.satellite
 
-        self.apply_pqa_filter = args.apply_pqa
-        self.pqa_mask = args.pqa_mask
+        self.mask_pqa_apply = args.mask_pqa_apply
+        self.mask_pqa_mask = args.mask_pqa_mask
+
+        self.mask_wofs_apply = args.mask_wofs_apply
+        self.mask_wofs_mask = args.mask_wofs_mask
 
         self.dataset_types = args.dataset_type
 
@@ -218,8 +243,8 @@ class DatasetRetrievalWorkflow():
         process = {process_min} to {process_max}
         ingest = {ingest_min} to {ingest_max}
         satellites = {satellites}
-        apply PQA filter = {apply_pqa_filter}
         PQA mask = {pqa_mask}
+        WOFS mask = {wofs_mask}
         datasets to retrieve = {dataset_type}
         output directory = {output}
         over write existing = {overwrite}
@@ -230,7 +255,8 @@ class DatasetRetrievalWorkflow():
                    process_min=self.process_min, process_max=self.process_max,
                    ingest_min=self.ingest_min, ingest_max=self.ingest_max,
                    satellites=self.satellites,
-                   apply_pqa_filter=self.apply_pqa_filter, pqa_mask=self.pqa_mask,
+                   pqa_mask=self.mask_pqa_apply and self.mask_pqa_mask.name or "",
+                   wofs_mask=self.mask_wofs_apply and self.mask_wofs_mask.name or "",
                    dataset_type=[decode_dataset_type(t) for t in self.dataset_types],
                    output=self.output_directory,
                    overwrite=self.overwrite,
@@ -262,22 +288,34 @@ class DatasetRetrievalWorkflow():
                                host=config.get_db_host(), port=config.get_db_port()):
 
             if self.list_only:
-                _log.info("Would retrieve datasets [%s]", [tile.datasets[t].path for t in intersection(self.dataset_types, dataset_type_database)])
+                _log.info("Would retrieve datasets [%s]",
+                          [t in tile.datasets and tile.datasets[t].path or "---" for t in intersection(self.dataset_types, dataset_type_database)])
                 continue
-
-            pqa = None
 
             # Apply PQA if specified
 
-            if self.apply_pqa_filter:
+            pqa = None
+
+            if self.mask_pqa_apply:
                 pqa = tile.datasets[DatasetType.PQ25]
 
+            # Apply WOFS if specified
+
+            wofs = None
+
+            if self.mask_wofs_apply and DatasetType.WATER in tile.datasets:
+                wofs = tile.datasets[DatasetType.WATER]
+
             for dataset_type in intersection(self.dataset_types, dataset_type_database):
-                retrieve_data(tile.datasets[dataset_type], pqa, self.pqa_mask, self.get_output_filename(tile.datasets[dataset_type]), tile.x, tile.y, self.overwrite, self.stack_vrt)
+                retrieve_data(tile.datasets[dataset_type],
+                              pqa, self.mask_pqa_mask,
+                              wofs, self.mask_wofs_mask,
+                              self.get_output_filename(tile.datasets[dataset_type]), tile.x, tile.y,
+                              self.overwrite, self.stack_vrt)
 
             nbar = tile.datasets[DatasetType.ARG25]
 
-            self.generate_derived_nbar(intersection(self.dataset_types, dataset_type_derived_nbar), nbar, pqa, self.pqa_mask, self.overwrite)
+            self.generate_derived_nbar(intersection(self.dataset_types, dataset_type_derived_nbar), nbar, pqa, self.mask_pqa_mask, self.overwrite)
 
         # Generate VRT stack
         if self.stack_vrt:
@@ -325,7 +363,7 @@ class DatasetRetrievalWorkflow():
         if filename.endswith(".vrt"):
             filename = filename.replace(".vrt", ".tif")
 
-        if self.apply_pqa_filter:
+        if self.mask_pqa_apply:
             dataset_type_string = {
                 DatasetType.ARG25: "_NBAR_",
                 DatasetType.PQ25: "_PQA_",
@@ -349,7 +387,7 @@ class DatasetRetrievalWorkflow():
             DatasetType.NBR: "_NBR_"
         }[dataset_type]
 
-        if self.apply_pqa_filter:
+        if self.mask_pqa_apply:
             dataset_type_string += "WITH_PQA_"
 
         filename = filename.replace("_NBAR_", dataset_type_string)
@@ -385,8 +423,7 @@ def retrieve_data(dataset, pq, pq_masks, path, x, y, overwrite=False, stack=Fals
 
     _log.debug("data is [%s]", data)
 
-    raster_create(path, [data[b] for b in dataset.bands],
-              metadata.transform, metadata.projection, NDV, gdal.GDT_Int16)
+    raster_create(path, [data[b] for b in dataset.bands], metadata.transform, metadata.projection, NDV, gdal.GDT_Int16)
 
     # If we are creating a stack then also add to a file list file...
     if stack:

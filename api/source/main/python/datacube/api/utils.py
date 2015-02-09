@@ -59,25 +59,6 @@ _log = logging.getLogger(__name__)
 #       - 12 = not cloud shadow (ACCA test)
 #       - 13 = not cloud shadow (FMASK test)
 
-# ### DEPRECATE AND REMOVE THESE IN FAVOUR OF THE ENUM!!!
-#
-# PQA_MASK = 0x3fff  # This represents bits 0-13 set
-# PQA_MASK_CONTIGUITY = 0x01FF
-# PQA_MASK_CLOUD = 0x0C00
-# PQA_MASK_CLOUD_SHADOW = 0x3000
-# PQA_MASK_SEA_WATER = 0x0200
-#
-# PQ_MASK_CLEAR = 16383               # bits 0 - 13 set
-# PQ_MASK_SATURATION = 255            # bits 0 - 7 set
-# PQ_MASK_SATURATION_OPTICAL = 159    # bits 0-4 and 7 set
-# PQ_MASK_SATURATION_THERMAL = 96     # bits 5,6 set
-# PQ_MASK_CONTIGUITY = 256            # bit 8 set
-# PQ_MASK_LAND = 512                  # bit 9 set
-# PQ_MASK_CLOUD_ACCA = 1024           # bit 10 set
-# PQ_MASK_CLOUD_FMASK = 2048          # bit 11 set
-# PQ_MASK_CLOUD_SHADOW_ACCA = 4096    # bit 12 set
-# PQ_MASK_CLOUD_SHADOW_FMASK = 8192   # bit 13 set
-
 class PqaMask(Enum):
     PQ_MASK_CLEAR = 16383               # bits 0 - 13 set
 
@@ -96,6 +77,18 @@ class PqaMask(Enum):
 
     PQ_MASK_CLOUD_SHADOW_ACCA = 4096    # bit 12 set
     PQ_MASK_CLOUD_SHADOW_FMASK = 8192   # bit 13 set
+
+
+class WofsMask(Enum):
+    DRY = 0
+    NO_DATA = 1
+    SATURATION_CONTIGUITY = 2
+    SEA_WATER = 4
+    TERRAIN_SHADOW = 8
+    HIGH_SLOPE = 16
+    CLOUD_SHADOW = 32
+    CLOUD = 64
+    WET = 128
 
 
 # Standard no data value
@@ -223,9 +216,10 @@ def get_dataset_data(dataset, bands=None, x=0, y=0, x_size=None, y_size=None):
     return out
 
 
-DEFAULT_PQA_MASK = [PqaMask.PQ_MASK_CLEAR]
+DEFAULT_MASK_PQA = [PqaMask.PQ_MASK_CLEAR]
 
-def get_dataset_data_with_pq(dataset, pq_dataset, bands=None, x=0, y=0, x_size=None, y_size=None, pq_masks=DEFAULT_PQA_MASK, ndv=NDV):
+
+def get_dataset_data_with_pq(dataset, pq_dataset, bands=None, x=0, y=0, x_size=None, y_size=None, pq_masks=DEFAULT_MASK_PQA, ndv=NDV):
 
     """
     Return one or more bands from the dataset with pixel quality applied
@@ -255,7 +249,7 @@ def get_dataset_data_with_pq(dataset, pq_dataset, bands=None, x=0, y=0, x_size=N
     return out
 
 
-def apply_pq(dataset, pq, ndv=NDV, pq_masks=DEFAULT_PQA_MASK):
+def apply_pq(dataset, pq, ndv=NDV, pq_masks=DEFAULT_MASK_PQA):
 
     # Get the PQ mask
     mask = get_pq_mask(pq, pq_masks)
@@ -264,7 +258,7 @@ def apply_pq(dataset, pq, ndv=NDV, pq_masks=DEFAULT_PQA_MASK):
     return numpy.ma.array(dataset, mask=mask).filled(ndv)
 
 
-def get_pq_mask(pq, pq_masks=DEFAULT_PQA_MASK):
+def get_pq_mask(pq, pq_masks=DEFAULT_MASK_PQA):
 
     """
     Return a pixel quality mask
@@ -275,19 +269,39 @@ def get_pq_mask(pq, pq_masks=DEFAULT_PQA_MASK):
     """
 
     # Consolidate the list of (bit) masks into a single (bit) mask
-    pq_mask = consolidate_pq_mask(pq_masks)
+    pq_mask = consolidate_masks(pq_masks)
 
     # Mask out values where the requested bits in the PQ value are not set
     return numpy.ma.masked_where(pq & pq_mask != pq_mask, pq).mask
 
 
-def consolidate_pq_mask(masks):
+def consolidate_masks(masks):
     mask = 0x0000
 
     for m in masks:
         mask |= m.value
 
     return mask
+
+
+DEFAULT_MASK_WOFS = [WofsMask.WET]
+
+
+def get_mask_wofs(wofs, masks=DEFAULT_MASK_WOFS):
+
+    """
+    Return a WOFS mask
+
+    :param wofs: WOFS dataset
+    :param masks: which WOFS values to mask
+    :return: the WOFS mask
+    """
+
+    # Consolidate the list of (bit) masks into a single (bit) mask
+    mask = consolidate_masks(masks)
+
+    # Mask out values where the WOFS value is one of the requested mask values
+    return numpy.ma.masked_where(wofs & mask == wofs, wofs).mask
 
 
 def raster_create(path, data, transform, projection, no_data_value, data_type,
@@ -703,11 +717,14 @@ def extract_fields_from_filename(filename):
 
     return satellite, dataset_type, x, y, acq_dt
 
+
 def intersection(a, b):
     return list(set(a) & set(b))
 
+
 def union(a, b):
     return list(set(a) | set(b))
+
 
 def subset(a, b):
     return set(a) <= set(b)

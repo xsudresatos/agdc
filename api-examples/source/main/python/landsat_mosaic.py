@@ -26,21 +26,20 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # ===============================================================================
-from datacube.api.query import SortType
 
 
 __author__ = "Simon Oldfield"
 
 
-import calendar
 import logging
 import os
 import gdal
 import numpy
 from datacube.api.model import DatasetType, Ls57Arg25Bands, Satellite, Ls8Arg25Bands
-from datacube.api.utils import NDV, empty_array, get_dataset_metadata, get_dataset_data_with_pq, raster_create, \
-    get_dataset_data
+from datacube.api.utils import NDV, empty_array, raster_create
+from datacube.api.utils import get_dataset_metadata, get_dataset_data_with_pq, get_dataset_data
 from datacube.api.workflow import SummaryTask, CellTask, Workflow
+from datacube.api.query import SortType
 
 
 _log = logging.getLogger()
@@ -50,7 +49,8 @@ class LandsatMosaicSummaryTask(SummaryTask):
     def create_cell_task(self, x, y):
         return LandsatMosaicCellTask(x=x, y=y, acq_min=self.acq_min, acq_max=self.acq_max,
                                      satellites=self.satellites, output_directory=self.output_directory, csv=self.csv,
-                                     dummy=self.dummy, save_input_files=self.save_input_files, apply_pq_filter=self.apply_pq_filter)
+                                     dummy=self.dummy, save_input_files=self.save_input_files,
+                                     mask_pqa_apply=self.mask_pqa_apply, mask_pqa_mask=self.mask_pqa_mask)
 
 
 class LandsatMosaicCellTask(CellTask):
@@ -73,7 +73,7 @@ class LandsatMosaicCellTask(CellTask):
         best_pixel_data = dict()
 
         # TODO
-        if Satellite.LS8.value in self.satellites:
+        if Satellite.LS8 in self.satellites:
             bands = Ls8Arg25Bands
         else:
             bands = Ls57Arg25Bands
@@ -104,8 +104,9 @@ class LandsatMosaicCellTask(CellTask):
 
             band_data = None
 
-            if self.apply_pq_filter:
-                band_data = get_dataset_data_with_pq(dataset, tile.datasets[DatasetType.PQ25])
+            if self.mask_pqa_apply:
+                band_data = get_dataset_data_with_pq(dataset, tile.datasets[DatasetType.PQ25],
+                                                     pq_masks=self.mask_pqa_mask)
             else:
                 band_data = get_dataset_data(dataset)
 
@@ -195,7 +196,8 @@ class LandsatMosaicWorkflow(Workflow):
         return [LandsatMosaicSummaryTask(x_min=self.x_min, x_max=self.x_max, y_min=self.y_min, y_max=self.y_max,
                                          acq_min=self.acq_min, acq_max=self.acq_max, satellites=self.satellites,
                                          output_directory=self.output_directory, csv=self.csv, dummy=self.dummy,
-                                         save_input_files=self.save_input_files, apply_pq_filter=self.apply_pq_filter)]
+                                         save_input_files=self.save_input_files,
+                                         mask_pqa_apply=self.mask_pqa_apply, mask_pqa_mask=self.mask_pqa_mask)]
 
 
 if __name__ == '__main__':

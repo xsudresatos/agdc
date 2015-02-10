@@ -90,7 +90,7 @@ class WofsMultiYearCellTask(luigi.Task):
         if self.dummy:
             from datacube.api.workflow import dummy
             dummy(self.output().path)
-            
+
         else:
             _log.debug("*** Actually doing it")
 

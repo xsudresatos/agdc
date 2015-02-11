@@ -123,46 +123,6 @@ class WofsWetKmsWorkflow():
                    output_directory=self.output_directory,
                    scheduler=self.local_scheduler and "LOCAL" or "MPI"))
 
-    # def run(self):
-    #     self.parse_arguments()
-    #
-    #     year_list = range(self.year_min, self.year_max + 1)
-    #     month_list = range(3, 12 + 1, 3)
-    #
-    #     import itertools
-    #
-    #     for year, month in itertools.product(year_list, month_list):
-    #         _log.info("Doing {year:04d}-{month:02d}".format(year=year, month=month))
-    #
-    #         import os
-    #         import glob
-    #
-    #         files = glob.glob(os.path.join(self.input_directory, "qtrInYearWaterSummary_{year:04d}_{month:02d}_*_*.tiff".format(year=year, month=month)))
-    #         _log.info("candidate files = [%s]", files)
-    #
-    #         observed_kms = float(0)
-    #         wet_kms = float(0)
-    #
-    #         for f in files:
-    #             import gdal
-    #
-    #             raster = gdal.Open(f, gdal.GA_ReadOnly)
-    #             assert raster
-    #
-    #             metadata = raster.GetMetadata()
-    #             _log.info("metadata for file [%s] is [%s]", f, metadata)
-    #
-    #             observed_pixels = int(metadata["observed_pixels"])
-    #             wet_pixels = int(metadata["wet_pixels"])
-    #             pixel_size = float(metadata["pixel_scale_metres"])
-    #
-    #             observed_kms += observed_pixels * pixel_size * pixel_size
-    #             wet_kms += wet_pixels * pixel_size * pixel_size
-    #
-    #             _log.info("observed kms = [%f] wet kms = [%f]", observed_kms, wet_kms)
-    #
-    #             raster = None
-
     def run(self):
         self.parse_arguments()
 
@@ -181,8 +141,8 @@ class WofsWetKmsWorkflow():
             import os
             import glob
 
-            files = glob.glob(os.path.join(self.input_directory, "qtrInYearWaterSummary_{year:04d}_{month:02d}_*_*.tiff".format(year=year, month=month)))
-            _log.info("candidate files = [%s]", files)
+            files = glob.glob(os.path.join(self.input_directory, "{x:03d}_{y:04d}/qtrInYearWaterSummary_{year:04d}_{month:02d}_{x:03d}_{y:04d}.tiff".format(x=x, y=y, year=year, month=month)))
+            _log.debug("candidate files = [%s]", files)
 
             for f in files:
                 import gdal
@@ -191,36 +151,36 @@ class WofsWetKmsWorkflow():
                 assert raster
 
                 metadata = raster.GetMetadata()
-                _log.info("metadata for file [%s] is [%s]", f, metadata)
+                _log.debug("metadata for file [%s] is [%s]", f, metadata)
 
                 qtr = str(metadata["qtrId"])
                 observed_pixels = int(metadata["observed_pixels"])
                 wet_pixels = int(metadata["wet_pixels"])
                 pixel_size = float(metadata["pixel_scale_metres"])
 
-                _log.info("qtr=[%s] observed=[%d] wet=[%d] pixel size=[%f]", qtr, observed_pixels, wet_pixels, pixel_size)
+                _log.debug("qtr=[%s] observed=[%d] wet=[%d] pixel size=[%f]", qtr, observed_pixels, wet_pixels, pixel_size)
 
                 if qtr not in summary:
                     summary[qtr] = {"observed_kms": float(0), "wet_kms": float(0)}
 
                 record = summary[qtr]
 
-                record["observed_kms"] += observed_pixels * pixel_size * pixel_size
-                record["wet_kms"] += wet_pixels * pixel_size * pixel_size
+                record["observed_kms"] += (observed_pixels * pixel_size * pixel_size / 1000 / 1000)
+                record["wet_kms"] += (wet_pixels * pixel_size * pixel_size / 1000 / 1000)
 
                 raster = None
 
-            _log.info("summary contains [%s]", summary)
-            _log.info("summary sorted contains [%s]", sorted(summary))
+            _log.debug("summary contains [%s]", summary)
+            _log.debug("summary sorted contains [%s]", sorted(summary))
 
-            import csv
-            with open(os.path.join(self.output_directory, "results.csv"), "wb") as f:
-                w = csv.writer(f)
+        import csv
+        with open(os.path.join(self.output_directory, "wofs_wet_kms_{x_min:03d}_{x_max:03d}_{y_min:04d}_{y_max:04d}_{year_min:04d}_{year_max:04d}.csv".format(x_min=self.x_min, x_max=self.x_max, y_min=self.y_min, y_max=self.y_max, year_min=self.year_min, year_max=self.year_max)), "wb") as f:
+            w = csv.writer(f)
 
-                w.writerow(["Quarter", "Observed KMs", "Wet KMs"])
-                
-                for k in sorted(summary):
-                    w.writerow([k, summary[k]["observed_kms"], summary[k]["wet_kms"]])
+            w.writerow(["Quarter", "Observed KMs", "Wet KMs"])
+
+            for k in sorted(summary):
+                w.writerow([k, summary[k]["observed_kms"], summary[k]["wet_kms"]])
 
 
 if __name__ == '__main__':

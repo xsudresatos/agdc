@@ -2,7 +2,7 @@
 #PBS -N wofs_2_year
 #PBS -P u46
 #PBS -q normal
-#PBS -l ncpus=2,mem=4GB
+#PBS -l ncpus=8,mem=16GB
 #PBS -l wd
 #PBS -l other=gdata1
 
@@ -20,10 +20,10 @@ export PYTHONPATH=$HOME/source/agdc-api/api-examples/source/main/python:$HOME/so
 #module unload python
 #module load agdc-api
 
-COMMAND="python $HOME/source/agdc-api/api-examples/source/main/python/wofs_multi_year.py --x-min $xmin --x-max $xmax --y-min $ymin --y-max $ymax --year-min $yearmin --yearmax $yearmax --input-directory $input --output-directory $output"
+COMMAND="python $HOME/source/agdc-api/api-examples/source/main/python/wofs_multi_year.py --x-min $xmin --x-max $xmax --y-min $ymin --y-max $ymax --year-min $yearmin --year-max $yearmax --input-directory $input --output-directory $output"
 
 # MPI
-mpirun -n 2 $COMMAND
+mpirun -n 8 $COMMAND
 
 # NO MPI
 #$COMMAND --local-scheduler

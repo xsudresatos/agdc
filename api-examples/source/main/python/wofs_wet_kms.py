@@ -177,10 +177,10 @@ class WofsWetKmsWorkflow():
         with open(os.path.join(self.output_directory, "wofs_wet_kms_{x_min:03d}_{x_max:03d}_{y_min:04d}_{y_max:04d}_{year_min:04d}_{year_max:04d}.csv".format(x_min=self.x_min, x_max=self.x_max, y_min=self.y_min, y_max=self.y_max, year_min=self.year_min, year_max=self.year_max)), "wb") as f:
             w = csv.writer(f)
 
-            w.writerow(["Quarter", "Observed KMs", "Wet KMs"])
+            w.writerow(["Quarter", "Wet KMs", "Observed KMs"])
 
             for k in sorted(summary):
-                w.writerow([k, summary[k]["observed_kms"], summary[k]["wet_kms"]])
+                w.writerow([k, summary[k]["wet_kms"], summary[k]["observed_kms"]])
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@
 #PBS -N mosaic
 #PBS -P u46
 #PBS -q normal
-#PBS -l ncpus=1,mem=2GB
+#PBS -l ncpus=8,mem=16GB
 #PBS -l wd
 #PBS -l other=gdata1
 
@@ -26,7 +26,7 @@ COMMAND="python $HOME/source/agdc-api/api-examples/source/main/python/landsat_mo
 [ -n "${mask_pqa_mask}" ] && COMMAND="${COMMAND}  --mask-pqa-mask $mask_pqa_mask"
 
 # MPI
-#mpirun -n 8 $COMMAND
+mpirun -n 8 $COMMAND
 
 # NO MPI
-$COMMAND --local-scheduler
+#$COMMAND --local-scheduler

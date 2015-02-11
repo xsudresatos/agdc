@@ -65,10 +65,10 @@ PBS_SCRIPT="$HOME/source/agdc-api/api-examples/source/main/python/landsat_mosaic
 # LS8 mosaic with PQA applied
 #qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2013-12-31",xmin=120,xmax=125,ymin=-25,ymax=-20,acqmin=2013-12,acqmax=2013-12,satellites=LS8 "${PBS_SCRIPT}"
 
-#qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=110,xmax=119,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
-#qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=120,xmax=129,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
-#qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=130,xmax=139,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
-#qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=140,xmax=149,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
-#qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=150,xmax=155,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
+qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=110,xmax=119,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
+qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=120,xmax=129,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
+qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=130,xmax=139,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
+qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=140,xmax=149,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
+qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=150,xmax=155,ymin=-45,ymax=-10,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
 
-qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=113,xmax=113,ymin=-26,ymax=-26,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"
+#qsub -v outputdir="/g/data/u46/sjo/clean_pixel/LS8/output/2014-12-31_no_land_sea_mask",xmin=113,xmax=113,ymin=-26,ymax=-26,acqmin=1987,acqmax=2015,satellites=LS8,mask_pqa_mask="PQ_MASK_SATURATION PQ_MASK_CONTIGUITY PQ_MASK_CLOUD" "${PBS_SCRIPT}"

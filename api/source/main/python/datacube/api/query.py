@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#st!/usr/bin/env python
 
 # ===============================================================================
 # Copyright (c)  2014 Geoscience Australia
@@ -1250,6 +1250,12 @@ class TimeInterval(object):
         self.start = start_datetime
         self.end = end_datetime
 
+    def years(self):
+        """
+        Return a list of years included in this interval
+        """
+        return range(self.start.year, self.end.year)
+
 class DatacubeQueryContext(object):
     """
     An instance of DatacubeQueryContext provides the ablility to query a selected Datacube
@@ -1270,6 +1276,21 @@ class DatacubeQueryContext(object):
             time_interval.start, \
             time_interval.end, \
             dataset_list, \
+            database=self.db_credentials.database, \
+            user=self.db_credentials.user, \
+            password=self.db_credentials.password, \
+            host=self.db_credentials.host, \
+            port=self.db_credentials.port, \
+            sort=sort)
+    
+    def tiles_to_file(self, x_list, y_list, satellite_list, time_interval, dataset_list, filename, sort=SortType.ASC):
+        return list_tiles_to_file(
+            x_list, \
+            y_list, \
+            satellite_list, \
+            time_interval.years(), \
+            dataset_list, \
+            filename, \
             database=self.db_credentials.database, \
             user=self.db_credentials.user, \
             password=self.db_credentials.password, \

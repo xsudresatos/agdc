@@ -5,7 +5,7 @@ WOFS Testing
 Getting all tiles
 -----------------
 
-This tests looks at the simple use case of getting all NBAR, PQ and DSM tiles from the datacube. 
+This test looks at the simple use case of getting all NBAR, PQ and DSM tiles from the datacube. 
 
 See [the code](https://github.com/GeoscienceAustralia/agdc/blob/stevenring/api/api/source/test/python/datacube/api/wofs_use_case_tests.py)
 ```

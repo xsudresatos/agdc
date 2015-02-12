@@ -21,6 +21,7 @@ class TestQueryWrapper(unittest.TestCase):
                        database=config.get_db_database(), user=config.get_db_username(), \
                        password=config.get_db_password(), \
                        host=config.get_db_host(), port=config.get_db_port())
+
         self.assertEqual(len(tiles), 523)
 
     def test_get_tiles_with_cube_context(self):
@@ -47,7 +48,7 @@ class TestQueryWrapper(unittest.TestCase):
         tiles = cube.tiles_to_file([123], [-25], satellite_list, time_interval, dataset_list, \
                  "tmp.txt")
 
-#        self.assertEqual(len(tiles), 523)
+        self.assertEqual(len(tiles), 523)
 
     def test_get_all_tiles_with_cube_context(self):
         logging.info("get_all_tiles started")
@@ -61,8 +62,6 @@ class TestQueryWrapper(unittest.TestCase):
             dataset_list, "tmp.txt")
 
         logging.info("get_all_tiles finished")
-
-#        self.assertEqual(len(tiles), 523)
 
 
 if __name__ == '__main__':

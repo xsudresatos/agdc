@@ -35,7 +35,7 @@ import numpy
 import gdal
 from gdalconst import *
 from enum import Enum
-from datacube.api.model import Pq25Bands, Ls57Arg25Bands, Satellite, DatasetType, Ls8Arg25Bands
+from datacube.api.model import Pq25Bands, Ls57Arg25Bands, Satellite, DatasetType, Ls8Arg25Bands, Wofs25Bands
 from datetime import datetime
 
 
@@ -219,19 +219,19 @@ def get_dataset_data(dataset, bands=None, x=0, y=0, x_size=None, y_size=None):
 DEFAULT_MASK_PQA = [PqaMask.PQ_MASK_CLEAR]
 
 
-def get_dataset_data_with_pq(dataset, pq_dataset, bands=None, x=0, y=0, x_size=None, y_size=None, pq_masks=DEFAULT_MASK_PQA, ndv=NDV):
+def get_dataset_data_masked(dataset, bands=None, x=0, y=0, x_size=None, y_size=None, ndv=NDV, mask=None):
 
     """
     Return one or more bands from the dataset with pixel quality applied
 
     :type dataset: datacube.api.model.Dataset
-    :type pq_dataset: datacube.api.model.Dataset
     :type bands: list[Band]
     :type x: int
     :type y: int
     :type x_size: int
     :type y_size: int
-    :type pq_masks: list[datacube.api.util.PqaMask]
+    :type ndv: int
+    :type mask: numpy.array
     :rtype: dict[numpy.array]
     """
 
@@ -240,39 +240,68 @@ def get_dataset_data_with_pq(dataset, pq_dataset, bands=None, x=0, y=0, x_size=N
 
     out = get_dataset_data(dataset, bands, x=x, y=y, x_size=x_size, y_size=y_size)
 
-    data_pq = get_dataset_data(pq_dataset, [Pq25Bands.PQ], x=x, y=y, x_size=x_size, y_size=y_size)[Pq25Bands.PQ]
-
-    for band in bands:
-
-        out[band] = apply_pq(out[band], data_pq, pq_masks=pq_masks, ndv=ndv)
+    if mask is not None:
+        for band in bands:
+            out[band] = apply_mask(out[band], mask=mask, ndv=ndv)
 
     return out
 
 
-def apply_pq(dataset, pq, ndv=NDV, pq_masks=DEFAULT_MASK_PQA):
+def get_dataset_data_with_pq(dataset, dataset_pqa, bands=None, x=0, y=0, x_size=None, y_size=None, masks_pqa=DEFAULT_MASK_PQA, ndv=NDV):
 
-    # Get the PQ mask
-    mask = get_pq_mask(pq, pq_masks)
+    """
+    Return one or more bands from the dataset with pixel quality applied
 
-    # Apply the PQ mask to the dataset and fill masked entries with no data value
-    return numpy.ma.array(dataset, mask=mask).filled(ndv)
+    :type dataset: datacube.api.model.Dataset
+    :type dataset_pqa: datacube.api.model.Dataset
+    :type bands: list[Band]
+    :type x: int
+    :type y: int
+    :type x_size: int
+    :type y_size: int
+    :type masks_pqa: list[datacube.api.util.PqaMask]
+    :rtype: dict[numpy.array]
+    """
+
+    if not bands:
+        bands = dataset.bands
+
+    mask_pqa = get_mask_pqa(dataset_pqa, x=x, y=y, x_size=x_size, y_size=y_size, pqa_masks=masks_pqa)
+
+    out = get_dataset_data_masked(dataset, bands, x=x, y=y, x_size=x_size, y_size=y_size, mask=mask_pqa, ndv=ndv)
+
+    return out
 
 
-def get_pq_mask(pq, pq_masks=DEFAULT_MASK_PQA):
+def apply_mask(data, mask, ndv=NDV):
+    return numpy.ma.array(data, mask=mask).filled(ndv)
+
+
+def get_mask_pqa(pqa, pqa_masks=DEFAULT_MASK_PQA, x=0, y=0, x_size=None, y_size=None, mask=None):
 
     """
     Return a pixel quality mask
 
-    :param pq: Pixel Quality dataset
-    :param mask: which PQ flags to use
-    :return: the PQ mask
+    :param pqa: Pixel Quality dataset
+    :param pqa_masks: which PQ flags to use
+    :param mask: an optional existing mask to update
+    :return: the mask
     """
 
     # Consolidate the list of (bit) masks into a single (bit) mask
-    pq_mask = consolidate_masks(pq_masks)
+    pqa_mask = consolidate_masks(pqa_masks)
+
+    # Read the PQA dataset
+    data = get_dataset_data(pqa, [Pq25Bands.PQ], x=x, y=y, x_size=x_size, y_size=y_size)[Pq25Bands.PQ]
+
+    # Create an empty mask if none provided - just to avoid an if below :)
+    if mask is None:
+        mask = numpy.ma.make_mask_none(numpy.shape(pqa))
 
     # Mask out values where the requested bits in the PQ value are not set
-    return numpy.ma.masked_where(pq & pq_mask != pq_mask, pq).mask
+    mask = numpy.ma.mask_or(mask, numpy.ma.masked_where(data & pqa_mask != pqa_mask, data).mask)
+
+    return mask
 
 
 def consolidate_masks(masks):
@@ -287,21 +316,28 @@ def consolidate_masks(masks):
 DEFAULT_MASK_WOFS = [WofsMask.WET]
 
 
-def get_mask_wofs(wofs, masks=DEFAULT_MASK_WOFS):
+def get_mask_wofs(wofs, wofs_masks=DEFAULT_MASK_WOFS, x=0, y=0, x_size=None, y_size=None, mask=None):
 
     """
     Return a WOFS mask
 
     :param wofs: WOFS dataset
-    :param masks: which WOFS values to mask
-    :return: the WOFS mask
+    :param wofs_masks: which WOFS values to mask
+    :param mask: an optional existing mask to update
+    :return: the mask
     """
 
-    # Consolidate the list of (bit) masks into a single (bit) mask
-    mask = consolidate_masks(masks)
+    # Read the WOFS dataset
+    data = get_dataset_data(wofs, bands=[Wofs25Bands.WATER], x=x, y=y, x_size=x_size, y_size=y_size)[Wofs25Bands.WATER]
+
+    if mask is None:
+        mask = numpy.ma.make_mask_none(numpy.shape(data))
 
     # Mask out values where the WOFS value is one of the requested mask values
-    return numpy.ma.masked_where(wofs & mask == wofs, wofs).mask
+    for wofs_mask in wofs_masks:
+        mask = numpy.ma.mask_or(mask, numpy.ma.masked_equal(data, wofs_mask.value).mask)
+
+    return mask
 
 
 def raster_create(path, data, transform, projection, no_data_value, data_type,

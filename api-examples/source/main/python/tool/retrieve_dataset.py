@@ -39,7 +39,8 @@ import os
 import subprocess
 from datacube.api.model import DatasetType, Satellite, dataset_type_database, dataset_type_derived_nbar, BANDS
 from datacube.api.query import list_tiles
-from datacube.api.utils import raster_create, intersection, calculate_ndvi, calculate_evi, calculate_nbr, union
+from datacube.api.utils import raster_create, intersection, calculate_ndvi, calculate_evi, calculate_nbr, union, \
+    get_mask_pqa, get_mask_wofs, get_dataset_data_masked
 from datacube.api.utils import PqaMask, WofsMask
 from datacube.api.utils import get_dataset_data, get_dataset_data_with_pq, get_dataset_metadata, NDV
 from datacube.api.workflow import writeable_dir
@@ -152,7 +153,7 @@ class DatasetRetrievalWorkflow():
                             dest="dataset_type",
                             type=dataset_type_arg,
                             nargs="+",
-                            choices=supported_dataset_types, default=DatasetType.ARG25,
+                            choices=supported_dataset_types, default=[DatasetType.ARG25],
                             metavar=" ".join([s.name for s in supported_dataset_types]))
 
         parser.add_argument("--output-directory", help="Output directory", action="store", dest="output_directory",
@@ -249,19 +250,17 @@ class DatasetRetrievalWorkflow():
         output directory = {output}
         over write existing = {overwrite}
         list only = {list_only}
-        stack (VRT) = {stack_vrt}
         """.format(x=self.x, y=self.y,
                    acq_min=self.acq_min, acq_max=self.acq_max,
                    process_min=self.process_min, process_max=self.process_max,
                    ingest_min=self.ingest_min, ingest_max=self.ingest_max,
                    satellites=self.satellites,
-                   pqa_mask=self.mask_pqa_apply and self.mask_pqa_mask.name or "",
-                   wofs_mask=self.mask_wofs_apply and self.mask_wofs_mask.name or "",
+                   pqa_mask=self.mask_pqa_apply and " ".join([mask.name for mask in self.mask_pqa_mask]) or "",
+                   wofs_mask=self.mask_wofs_apply and " ".join([mask.name for mask in self.mask_wofs_mask]) or "",
                    dataset_type=[decode_dataset_type(t) for t in self.dataset_types],
                    output=self.output_directory,
                    overwrite=self.overwrite,
-                   list_only=self.list_only,
-                   stack_vrt=self.stack_vrt))
+                   list_only=self.list_only))
 
     def run(self):
         self.parse_arguments()
@@ -296,7 +295,7 @@ class DatasetRetrievalWorkflow():
 
             pqa = None
 
-            if self.mask_pqa_apply:
+            if self.mask_pqa_apply and DatasetType.PQ25 in tile.datasets:
                 pqa = tile.datasets[DatasetType.PQ25]
 
             # Apply WOFS if specified
@@ -307,11 +306,14 @@ class DatasetRetrievalWorkflow():
                 wofs = tile.datasets[DatasetType.WATER]
 
             for dataset_type in intersection(self.dataset_types, dataset_type_database):
-                retrieve_data(tile.datasets[dataset_type],
-                              pqa, self.mask_pqa_mask,
-                              wofs, self.mask_wofs_mask,
-                              self.get_output_filename(tile.datasets[dataset_type]), tile.x, tile.y,
-                              self.overwrite, self.stack_vrt)
+                if dataset_type in tile.datasets:
+                    retrieve_data(tile.datasets[dataset_type],
+                                  pqa, self.mask_pqa_mask,
+                                  wofs, self.mask_wofs_mask,
+                                  self.get_output_filename(tile.datasets[dataset_type]), tile.x, tile.y,
+                                  self.overwrite)
+                else:
+                    _log.info("Skipping missing [%s] dataset", dataset_type.value)
 
             nbar = tile.datasets[DatasetType.ARG25]
 
@@ -363,14 +365,21 @@ class DatasetRetrievalWorkflow():
         if filename.endswith(".vrt"):
             filename = filename.replace(".vrt", ".tif")
 
-        if self.mask_pqa_apply:
-            dataset_type_string = {
-                DatasetType.ARG25: "_NBAR_",
-                DatasetType.PQ25: "_PQA_",
-                DatasetType.FC25: "_FC_"
-            }[dataset.dataset_type]
+        dataset_type_string = {
+            DatasetType.ARG25: "_NBAR_",
+            DatasetType.PQ25: "_PQA_",
+            DatasetType.FC25: "_FC_",
+            DatasetType.WATER: "_WATER_"
+        }[dataset.dataset_type]
 
+        if self.mask_pqa_apply and self.mask_wofs_apply:
+            filename = filename.replace(dataset_type_string, dataset_type_string + "WITH_PQA_WATER_")
+
+        elif self.mask_pqa_apply:
             filename = filename.replace(dataset_type_string, dataset_type_string + "WITH_PQA_")
+
+        elif self.mask_wofs_apply:
+            filename = filename.replace(dataset_type_string, dataset_type_string + "WITH_WATER_")
 
         return os.path.join(self.output_directory, filename)
 
@@ -390,6 +399,9 @@ class DatasetRetrievalWorkflow():
         if self.mask_pqa_apply:
             dataset_type_string += "WITH_PQA_"
 
+        if self.mask_wofs_apply:
+            dataset_type_string += "WITH_WOFS_"
+
         filename = filename.replace("_NBAR_", dataset_type_string)
 
         return os.path.join(self.output_directory, filename)
@@ -397,16 +409,20 @@ class DatasetRetrievalWorkflow():
 
 def decode_dataset_type(dataset_type):
     return {DatasetType.ARG25: "Surface Reflectance",
-              DatasetType.PQ25: "Pixel Quality",
-              DatasetType.FC25: "Fractional Cover",
-              DatasetType.WATER: "WOFS Woffle",
-              DatasetType.NDVI: "NDVI",
-              DatasetType.EVI: "EVI",
-              DatasetType.NBR: "Normalised Burn Ratio"}[dataset_type]
+            DatasetType.PQ25: "Pixel Quality",
+            DatasetType.FC25: "Fractional Cover",
+            DatasetType.WATER: "WOFS Woffle",
+            DatasetType.NDVI: "NDVI",
+            DatasetType.EVI: "EVI",
+            DatasetType.NBR: "Normalised Burn Ratio"}[dataset_type]
 
 
-def retrieve_data(dataset, pq, pq_masks, path, x, y, overwrite=False, stack=False):
-    _log.info("Retrieving data from [%s] with pq [%s] and pq mask [%s] to [%s]", dataset.path, pq and pq.path or "", pq and pq_masks or "", path)
+def retrieve_data(dataset, pqa, pqa_masks, wofs, wofs_masks, path, x, y, overwrite=False, stack=False):
+    _log.info("Retrieving data from [%s] with pqa [%s] and pqa mask [%s] and wofs [%s] and wofs mask [%s] to [%s]",
+              dataset.path,
+              pqa and pqa.path or "", pqa and pqa_masks or "",
+              wofs and wofs.path or "", wofs and wofs_masks or "",
+              path)
 
     if os.path.exists(path) and not overwrite:
         _log.error("Output file [%s] exists", path)
@@ -416,21 +432,31 @@ def retrieve_data(dataset, pq, pq_masks, path, x, y, overwrite=False, stack=Fals
 
     metadata = get_dataset_metadata(dataset)
 
-    if pq:
-        data = get_dataset_data_with_pq(dataset, pq, pq_masks=pq_masks)
-    else:
-        data = get_dataset_data(dataset)
+    mask = None
+
+    if pqa:
+        mask = get_mask_pqa(pqa, pqa_masks)
+
+    if wofs:
+        mask = get_mask_wofs(wofs, wofs_masks, mask=mask)
+
+    ndv = NDV
+
+    if dataset.dataset_type == DatasetType.WATER:
+        ndv = 255
+
+    data = get_dataset_data_masked(dataset, mask=mask, ndv=ndv)
 
     _log.debug("data is [%s]", data)
 
     raster_create(path, [data[b] for b in dataset.bands], metadata.transform, metadata.projection, NDV, gdal.GDT_Int16)
 
-    # If we are creating a stack then also add to a file list file...
-    if stack:
-        path_file_list = os.path.join(os.path.dirname(path), get_filename_file_list(dataset.satellite, dataset.dataset_type, x, y))
-        _log.info("Also going to write file list to [%s]", path_file_list)
-        with open(path_file_list, "ab") as f:
-            print >>f, path
+    # # If we are creating a stack then also add to a file list file...
+    # if stack:
+    #     path_file_list = os.path.join(os.path.dirname(path), get_filename_file_list(dataset.satellite, dataset.dataset_type, x, y))
+    #     _log.info("Also going to write file list to [%s]", path_file_list)
+    #     with open(path_file_list, "ab") as f:
+    #         print >>f, path
 
 
 def get_filename_file_list(satellite, dataset_type, x, y):
@@ -479,6 +505,6 @@ def check_overwrite_remove_or_fail(path, overwrite):
             raise Exception("File [%s] exists" % path)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     DatasetRetrievalWorkflow("Dataset Retrieval").run()

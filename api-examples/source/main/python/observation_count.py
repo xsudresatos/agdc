@@ -38,7 +38,7 @@ import numpy
 import gdal
 from gdalconst import GDT_Int16
 from datacube.api.model import DatasetType, Fc25Bands, Ls57Arg25Bands, Satellite, Pq25Bands
-from datacube.api.utils import NDV, empty_array, INT16_MIN, get_dataset_data, get_pq_mask, get_dataset_metadata, \
+from datacube.api.utils import NDV, empty_array, INT16_MIN, get_dataset_data, get_mask_pqa, get_dataset_metadata, \
     get_dataset_data_with_pq, calculate_ndvi, propagate_using_selected_pixel, raster_create, PQA_MASK, PQ_MASK_CLEAR, \
     PQ_MASK_SATURATION_OPTICAL, PQ_MASK_SATURATION_THERMAL, PQ_MASK_CONTIGUITY, PQ_MASK_LAND, PQ_MASK_CLOUD_ACCA, \
     PQ_MASK_CLOUD_FMASK, PQ_MASK_CLOUD_SHADOW_ACCA, PQ_MASK_CLOUD_SHADOW_FMASK

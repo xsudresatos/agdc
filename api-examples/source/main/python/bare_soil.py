@@ -37,7 +37,7 @@ import calendar
 import numpy
 import gdal
 from datacube.api.model import DatasetType, Fc25Bands, Ls57Arg25Bands, Satellite, Pq25Bands
-from datacube.api.utils import NDV, empty_array, INT16_MIN, get_dataset_data, get_pq_mask, get_dataset_metadata, \
+from datacube.api.utils import NDV, empty_array, INT16_MIN, get_dataset_data, get_mask_pqa, get_dataset_metadata, \
     get_dataset_data_with_pq, calculate_ndvi, propagate_using_selected_pixel, raster_create
 from datacube.api.workflow import Workflow, SummaryTask, CellTask
 
@@ -102,7 +102,7 @@ class BareSoilCellTask(CellTask):
             pq = tile.datasets[DatasetType.PQ25]
             data_pq = get_dataset_data(pq, [Pq25Bands.PQ])[Pq25Bands.PQ]
 
-            mask_pq = get_pq_mask(data_pq)
+            mask_pq = get_mask_pqa(data_pq)
 
             # Get NBAR dataset
 
@@ -138,25 +138,25 @@ class BareSoilCellTask(CellTask):
 
             data_fc = get_dataset_data(fc, Fc25Bands)
 
-            data_bare_soil = data_fc[Fc25Bands.BS]
+            data_bare_soil = data_fc[Fc25Bands.BARE_SOIL]
             data_bare_soil = numpy.ma.masked_equal(data_bare_soil, -999)
             data_bare_soil = numpy.ma.masked_outside(data_bare_soil, 0, 8000)
             data_bare_soil.mask = (data_bare_soil.mask | mask_pq | mask_ndvi)
             data_bare_soil = data_bare_soil.filled(NDV)
 
             # Compare the bare soil value from this dataset to the current "best" value
-            best_pixel_fc[Fc25Bands.BS] = numpy.fmax(best_pixel_fc[Fc25Bands.BS], data_bare_soil)
+            best_pixel_fc[Fc25Bands.BARE_SOIL] = numpy.fmax(best_pixel_fc[Fc25Bands.BARE_SOIL], data_bare_soil)
 
             # Now update the other best pixel datasets/bands to grab the pixels we just selected
 
             for band in Ls57Arg25Bands:
-                best_pixel_nbar[band] = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BS],
+                best_pixel_nbar[band] = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BARE_SOIL],
                                                                        data_bare_soil,
                                                                        data_nbar[band],
                                                                        best_pixel_nbar[band])
 
-            for band in [Fc25Bands.PV, Fc25Bands.NPV, Fc25Bands.ERROR]:
-                best_pixel_fc[band] = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BS],
+            for band in [Fc25Bands.PHOTOSYNTHETIC_VEGETATION, Fc25Bands.NON_PHOTOSYNTHETIC_VEGETATION, Fc25Bands.ERROR]:
+                best_pixel_fc[band] = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BARE_SOIL],
                                                                      data_bare_soil,
                                                                      data_fc[band],
                                                                      best_pixel_fc[band])
@@ -165,28 +165,28 @@ class BareSoilCellTask(CellTask):
 
             current_satellite.fill(SATELLITE_DATA_VALUES[fc.satellite])
 
-            best_pixel_satellite = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BS],
+            best_pixel_satellite = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BARE_SOIL],
                                                                   data_bare_soil,
                                                                   current_satellite,
                                                                   best_pixel_satellite)
 
             current_year.fill(tile.end_datetime_year)
 
-            best_pixel_year = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BS],
+            best_pixel_year = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BARE_SOIL],
                                                              data_bare_soil,
                                                              current_year,
                                                              best_pixel_year)
 
             current_month.fill(tile.end_datetime_month)
 
-            best_pixel_month = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BS],
+            best_pixel_month = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BARE_SOIL],
                                                               data_bare_soil,
                                                               current_month,
                                                               best_pixel_month)
 
             current_epoch.fill(calendar.timegm(tile.end_datetime.timetuple()))
 
-            best_pixel_epoch = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BS],
+            best_pixel_epoch = propagate_using_selected_pixel(best_pixel_fc[Fc25Bands.BARE_SOIL],
                                                               data_bare_soil,
                                                               current_epoch,
                                                               best_pixel_epoch)
@@ -197,8 +197,8 @@ class BareSoilCellTask(CellTask):
 
         raster_create(self.get_dataset_filename("FC"),
                       [best_pixel_fc[b] for b in Fc25Bands],
-                      metadata_fc.transform, metadata_fc.projection, metadata_fc.bands[Fc25Bands.BS].no_data_value,
-                      metadata_fc.bands[Fc25Bands.BS].data_type)
+                      metadata_fc.transform, metadata_fc.projection, metadata_fc.bands[Fc25Bands.BARE_SOIL].no_data_value,
+                      metadata_fc.bands[Fc25Bands.BARE_SOIL].data_type)
 
         # NBAR composite
 

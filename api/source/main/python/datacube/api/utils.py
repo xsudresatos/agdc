@@ -100,6 +100,9 @@ INT16_MAX = numpy.iinfo(numpy.int16).max
 UINT16_MIN = numpy.iinfo(numpy.uint16).min
 UINT16_MAX = numpy.iinfo(numpy.uint16).max
 
+BYTE_MIN = numpy.iinfo(numpy.ubyte).min
+BYTE_MAX = numpy.iinfo(numpy.ubyte).max
+
 
 def empty_array(shape, dtype=numpy.int16, ndv=-999):
 
@@ -339,11 +342,16 @@ def get_mask_wofs(wofs, wofs_masks=DEFAULT_MASK_WOFS, x=0, y=0, x_size=None, y_s
 
     return mask
 
+# TODO I've dodgied this to get band names in.  Should redo it properly so you pass in a lit of band data structures
+# that have a name, the data, the NDV, etc
 
 def raster_create(path, data, transform, projection, no_data_value, data_type,
                   # options=["INTERLEAVE=PIXEL", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]):
                   # options=["INTERLEAVE=PIXEL", "COMPRESS=DEFLATE", "PREDICTOR=1", "ZLEVEL=6"]):
-                  options=["INTERLEAVE=PIXEL"], width=None, height=None):
+                  options=["INTERLEAVE=PIXEL"],
+                  # options=["INTERLEAVE=PIXEL", "COMPRESS=LZW"],
+                  # options=["INTERLEAVE=PIXEL", "COMPRESS=LZW", "TILED=YES"],
+                  width=None, height=None, dataset_metadata=None, band_ids=None):
     """
     Create a raster from a list of numpy arrays
 
@@ -372,8 +380,13 @@ def raster_create(path, data, transform, projection, no_data_value, data_type,
     dataset.SetGeoTransform(transform)
     dataset.SetProjection(projection)
 
+    if dataset_metadata:
+        dataset.SetMetadata(dataset_metadata)
+
     for i in range(0, len(data)):
         _log.debug("Writing band %d", i + 1)
+        if band_ids and len(band_ids) - 1 >= i:
+            dataset.GetRasterBand(i + 1).SetMetadataItem("BAND_ID", band_ids[i])
         dataset.GetRasterBand(i + 1).SetNoDataValue(no_data_value)
         dataset.GetRasterBand(i + 1).WriteArray(data[i])
         dataset.GetRasterBand(i + 1).ComputeStatistics(True)

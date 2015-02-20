@@ -40,7 +40,7 @@ import subprocess
 from datacube.api.model import DatasetType, Satellite, dataset_type_database, dataset_type_derived_nbar, BANDS
 from datacube.api.query import list_tiles
 from datacube.api.utils import raster_create, intersection, calculate_ndvi, calculate_evi, calculate_nbr, union, \
-    get_mask_pqa, get_mask_wofs, get_dataset_data_masked
+    get_mask_pqa, get_mask_wofs, get_dataset_data_masked, UINT16_MAX, BYTE_MAX
 from datacube.api.utils import PqaMask, WofsMask
 from datacube.api.utils import get_dataset_data, get_dataset_data_with_pq, get_dataset_metadata, NDV
 from datacube.api.workflow import writeable_dir
@@ -254,7 +254,7 @@ class DatasetRetrievalWorkflow():
                    acq_min=self.acq_min, acq_max=self.acq_max,
                    process_min=self.process_min, process_max=self.process_max,
                    ingest_min=self.ingest_min, ingest_max=self.ingest_max,
-                   satellites=self.satellites,
+                   satellites=" ".join([satellite.name for satellite in self.satellites]),
                    pqa_mask=self.mask_pqa_apply and " ".join([mask.name for mask in self.mask_pqa_mask]) or "",
                    wofs_mask=self.mask_wofs_apply and " ".join([mask.name for mask in self.mask_wofs_mask]) or "",
                    dataset_type=[decode_dataset_type(t) for t in self.dataset_types],
@@ -307,17 +307,17 @@ class DatasetRetrievalWorkflow():
 
             for dataset_type in intersection(self.dataset_types, dataset_type_database):
                 if dataset_type in tile.datasets:
-                    retrieve_data(tile.datasets[dataset_type],
-                                  pqa, self.mask_pqa_mask,
-                                  wofs, self.mask_wofs_mask,
-                                  self.get_output_filename(tile.datasets[dataset_type]), tile.x, tile.y,
-                                  self.overwrite)
+                    retrieve_dataset(tile.datasets[dataset_type],
+                                     pqa, self.mask_pqa_mask,
+                                     wofs, self.mask_wofs_mask,
+                                     self.get_output_filename(tile.datasets[dataset_type]), tile.x, tile.y,
+                                     self.overwrite)
                 else:
                     _log.info("Skipping missing [%s] dataset", dataset_type.value)
 
             nbar = tile.datasets[DatasetType.ARG25]
 
-            self.generate_derived_nbar(intersection(self.dataset_types, dataset_type_derived_nbar), nbar, pqa, self.mask_pqa_mask, self.overwrite)
+            self.generate_derived_nbar(intersection(self.dataset_types, dataset_type_derived_nbar), nbar, pqa, self.mask_pqa_mask, wofs, self.mask_wofs_mask, self.overwrite)
 
         # Generate VRT stack
         if self.stack_vrt:
@@ -330,33 +330,26 @@ class DatasetRetrievalWorkflow():
                         # gdalbuildrt -separate -b <band> -input_file_list <input file> <vrt file>
                         subprocess.call(["gdalbuildvrt", "-separate", "-b", str(band.value), "-input_file_list", path, path_vrt])
 
-    def generate_derived_nbar(self, dataset_types, nbar, pqa, pqa_masks, overwrite=False):
+    def generate_derived_nbar(self, dataset_types, nbar, pqa, pqa_masks, wofs, wofs_masks, overwrite=False):
         for dataset_type in dataset_types:
             filename = self.get_output_filename_derived_nbar(nbar, dataset_type)
             _log.info("Generating data from [%s] with pq [%s] and pq mask [%s] to [%s]", nbar.path, pqa and pqa.path or "", pqa and pqa_masks or "", filename)
 
             metadata = get_dataset_metadata(nbar)
 
-            data = None
-
-            if pqa:
-                data = get_dataset_data_with_pq(nbar, pqa, pq_masks=pqa_masks)
-            else:
-                data = get_dataset_data(nbar)
-
-            _log.debug("data is [%s]", data)
+            data = retrieve_data(nbar, pqa, pqa_masks, wofs, wofs_masks)
 
             if dataset_type == DatasetType.NDVI:
                 ndvi = calculate_ndvi(data[nbar.bands.RED], data[nbar.bands.NEAR_INFRARED])
-                raster_create(filename, [ndvi], metadata.transform, metadata.projection, NDV, gdal.GDT_Float32)
+                raster_create(filename, [ndvi], metadata.transform, metadata.projection, NDV, gdal.GDT_Float32, descriptions=[dataset_type.name])
 
             elif dataset_type == DatasetType.EVI:
                 evi = calculate_evi(data[nbar.bands.RED], data[nbar.bands.BLUE], data[nbar.bands.NEAR_INFRARED])
-                raster_create(filename, [evi], metadata.transform, metadata.projection, NDV, gdal.GDT_Float32)
+                raster_create(filename, [evi], metadata.transform, metadata.projection, NDV, gdal.GDT_Float32, descriptions=[dataset_type.name])
 
             elif dataset_type == DatasetType.NBR:
                 nbr = calculate_nbr(data[nbar.bands.NEAR_INFRARED], data[nbar.bands.SHORT_WAVE_INFRARED_2])
-                raster_create(filename, [nbr], metadata.transform, metadata.projection, NDV, gdal.GDT_Float32)
+                raster_create(filename, [nbr], metadata.transform, metadata.projection, NDV, gdal.GDT_Float32, descriptions=[dataset_type.name])
 
     def get_output_filename(self, dataset):
 
@@ -396,11 +389,14 @@ class DatasetRetrievalWorkflow():
             DatasetType.NBR: "_NBR_"
         }[dataset_type]
 
-        if self.mask_pqa_apply:
+        if self.mask_pqa_apply and self.mask_wofs_apply:
+            dataset_type_string += "WITH_PQA_WATER_"
+
+        elif self.mask_pqa_apply:
             dataset_type_string += "WITH_PQA_"
 
-        if self.mask_wofs_apply:
-            dataset_type_string += "WITH_WOFS_"
+        elif self.mask_wofs_apply:
+            dataset_type_string += "WITH_WATER_"
 
         filename = filename.replace("_NBAR_", dataset_type_string)
 
@@ -417,7 +413,7 @@ def decode_dataset_type(dataset_type):
             DatasetType.NBR: "Normalised Burn Ratio"}[dataset_type]
 
 
-def retrieve_data(dataset, pqa, pqa_masks, wofs, wofs_masks, path, x, y, overwrite=False, stack=False):
+def retrieve_dataset(dataset, pqa, pqa_masks, wofs, wofs_masks, path, x, y, overwrite=False, stack=False):
     _log.info("Retrieving data from [%s] with pqa [%s] and pqa mask [%s] and wofs [%s] and wofs mask [%s] to [%s]",
               dataset.path,
               pqa and pqa.path or "", pqa and pqa_masks or "",
@@ -428,9 +424,34 @@ def retrieve_data(dataset, pqa, pqa_masks, wofs, wofs_masks, path, x, y, overwri
         _log.error("Output file [%s] exists", path)
         raise Exception("Output file [%s] already exists" % path)
 
-    data = None
-
     metadata = get_dataset_metadata(dataset)
+
+    # TODO - PQ is UNIT16 and WOFS is BYTE (others are INT16) and so -999 NDV doesn't work
+    ndv = NDV
+    data_type = gdal.GDT_Int16
+
+    if dataset.dataset_type == DatasetType.PQ25:
+        data_type = gdal.GDT_UInt16
+        ndv = UINT16_MAX
+
+    elif dataset.dataset_type == DatasetType.WATER:
+        data_type = gdal.GDT_Byte
+        ndv = BYTE_MAX
+
+    data = retrieve_data(dataset, pqa, pqa_masks, wofs, wofs_masks, ndv=ndv)
+
+    raster_create(path, [data[b] for b in dataset.bands], metadata.transform, metadata.projection, ndv, data_type, descriptions=[b.name for b in dataset.bands])
+
+    # # If we are creating a stack then also add to a file list file...
+    # if stack:
+    #     path_file_list = os.path.join(os.path.dirname(path), get_filename_file_list(dataset.satellite, dataset.dataset_type, x, y))
+    #     _log.info("Also going to write file list to [%s]", path_file_list)
+    #     with open(path_file_list, "ab") as f:
+    #         print >>f, path
+
+
+def retrieve_data(dataset, pqa, pqa_masks, wofs, wofs_masks, ndv=NDV):
+    data = None
 
     mask = None
 
@@ -440,23 +461,11 @@ def retrieve_data(dataset, pqa, pqa_masks, wofs, wofs_masks, path, x, y, overwri
     if wofs:
         mask = get_mask_wofs(wofs, wofs_masks, mask=mask)
 
-    ndv = NDV
-
-    if dataset.dataset_type == DatasetType.WATER:
-        ndv = 255
-
     data = get_dataset_data_masked(dataset, mask=mask, ndv=ndv)
 
     _log.debug("data is [%s]", data)
 
-    raster_create(path, [data[b] for b in dataset.bands], metadata.transform, metadata.projection, NDV, gdal.GDT_Int16)
-
-    # # If we are creating a stack then also add to a file list file...
-    # if stack:
-    #     path_file_list = os.path.join(os.path.dirname(path), get_filename_file_list(dataset.satellite, dataset.dataset_type, x, y))
-    #     _log.info("Also going to write file list to [%s]", path_file_list)
-    #     with open(path_file_list, "ab") as f:
-    #         print >>f, path
+    return data
 
 
 def get_filename_file_list(satellite, dataset_type, x, y):
@@ -505,6 +514,6 @@ def check_overwrite_remove_or_fail(path, overwrite):
             raise Exception("File [%s] exists" % path)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     DatasetRetrievalWorkflow("Dataset Retrieval").run()

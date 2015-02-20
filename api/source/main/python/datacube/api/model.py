@@ -118,11 +118,11 @@ class Pq25Bands(Enum):
 
 
 class Fc25Bands(Enum):
-    __order__ = "BS PV NPV ERROR"
+    __order__ = "BARE_SOIL PHOTOSYNTHETIC_VEGETATION NON_PHOTOSYNTHETIC_VEGETATION ERROR"
 
-    BS = 1
-    PV = 2
-    NPV = 3
+    BARE_SOIL = 1
+    PHOTOSYNTHETIC_VEGETATION = 2
+    NON_PHOTOSYNTHETIC_VEGETATION = 3
     ERROR = 4
 
 
@@ -130,6 +130,24 @@ class Wofs25Bands(Enum):
     __order__ = "WATER"
 
     WATER = 1
+
+
+class NdviBands(Enum):
+    __order__ = "NDVI"
+
+    NDVI = 1
+
+
+class EviBands(Enum):
+    __order__ = "EVI"
+
+    EVI = 1
+
+
+class NbrBands(Enum):
+    __order__ = "NBR"
+
+    NBR = 1
 
 
 class DsmBands(Enum):
@@ -163,7 +181,7 @@ dataset_type_database = [DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25,
                          DatasetType.DSM,
                          DatasetType.DEM, DatasetType.DEM_HYDROLOGICALLY_ENFORCED, DatasetType.DEM_SMOOTHED]
 dataset_type_filesystem = []
-dataset_type_derived_nbar = [DatasetType.NDVI, DatasetType.EVI, DatasetType.NBR] # TCI, SAVI, etc...
+dataset_type_derived_nbar = [DatasetType.NDVI, DatasetType.EVI, DatasetType.NBR]  # TCI, SAVI, etc...
 
 
 class DatasetTile:
@@ -349,6 +367,18 @@ BANDS = {
     (DatasetType.WATER, Satellite.LS5): Wofs25Bands,
     (DatasetType.WATER, Satellite.LS7): Wofs25Bands,
     (DatasetType.WATER, Satellite.LS8): Wofs25Bands,
+
+    (DatasetType.NDVI, Satellite.LS5): NdviBands,
+    (DatasetType.NDVI, Satellite.LS7): NdviBands,
+    (DatasetType.NDVI, Satellite.LS8): NdviBands,
+
+    (DatasetType.EVI, Satellite.LS5): EviBands,
+    (DatasetType.EVI, Satellite.LS7): EviBands,
+    (DatasetType.EVI, Satellite.LS8): EviBands,
+
+    (DatasetType.NBR, Satellite.LS5): NbrBands,
+    (DatasetType.NBR, Satellite.LS7): NbrBands,
+    (DatasetType.NBR, Satellite.LS8): NbrBands,
 
     (DatasetType.DSM, None): DsmBands,
     (DatasetType.DEM, None): DsmBands,

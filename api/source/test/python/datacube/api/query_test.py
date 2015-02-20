@@ -50,7 +50,7 @@ def main():
     config = Config(os.path.expanduser("~/.datacube/config"))
     _log.debug(config.to_str())
 
-    find_missing_wofs_tiles(config)
+    # find_missing_wofs_tiles(config)
 
     # do_list_tiles_by_xy_single(config)
     # do_list_cells_by_xy_single(config)
@@ -67,7 +67,25 @@ def main():
     # do_list_tiles_by_xy_single_csv(config)
     # do_list_cells_by_xy_single_csv(config)
 
-# Records DB -> model classes
+    do_list_dataset_paths(config, x=[146], y=[-34], satellites=[Satellite.LS5, Satellite.LS7], dataset_types=[DatasetType.FC25])
+
+
+def do_list_dataset_paths(config,
+                          x=range(110, 155 + 1), y=range(-55, -10 + 1),
+                          acq_min=date(1980, 1, 1), acq_max=date(2020, 12, 31),
+                          satellites=list(Satellite),
+                          dataset_types=list(DatasetType)):
+    tiles = list_tiles(x=x, y=y,
+                       acq_min=acq_min, acq_max=acq_max, satellites=satellites,
+                       datasets=dataset_types,
+                       database=config.get_db_database(), user=config.get_db_username(),
+                       password=config.get_db_password(),
+                       host=config.get_db_host(), port=config.get_db_port())
+
+    for tile in tiles:
+        for dataset_type in dataset_types:
+            if dataset_type in tile.datasets:
+                print tile.datasets[dataset_type].path
 
 
 def find_missing_wofs_tiles(config):

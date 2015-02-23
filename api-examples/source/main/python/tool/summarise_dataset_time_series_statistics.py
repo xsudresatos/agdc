@@ -529,38 +529,63 @@ class SummariseDatasetTimeSeriesStatistics():
                         masked_summary = numpy.var(masked_stack, axis=0)
 
                     elif statistic == Statistic.PERCENTILE_25:
+                        percent = 0.25
                         if masked_sorted is None:
                             masked_sorted = numpy.ma.sort(masked_stack, axis=0)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * 0.25).astype(numpy.int16)
-                        masked_summary = numpy.ma.choose(masked_percentile_index, masked_sorted)
+                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
+                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
+                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
+                        index_flat = masked_percentile_index.flatten() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
+                        masked_summary = masked_sorted.flatten()[index_flat].reshape(numpy.shape(masked_percentile_index))
+                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
                         del masked_percentile_index
 
                     elif statistic == Statistic.PERCENTILE_50:
+                        percent = 0.50
                         if masked_sorted is None:
                             masked_sorted = numpy.ma.sort(masked_stack, axis=0)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * 0.50).astype(numpy.int16)
-                        masked_summary = numpy.ma.choose(masked_percentile_index, masked_sorted)
+                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
+                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
+                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
+                        index_flat = masked_percentile_index.flatten() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
+                        masked_summary = masked_sorted.flatten()[index_flat].reshape(numpy.shape(masked_percentile_index))
+                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
                         del masked_percentile_index
 
                     elif statistic == Statistic.PERCENTILE_75:
+                        percent = 0.75
                         if masked_sorted is None:
                             masked_sorted = numpy.ma.sort(masked_stack, axis=0)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * 0.75).astype(numpy.int16)
-                        masked_summary = numpy.ma.choose(masked_percentile_index, masked_sorted)
+                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
+                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
+                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
+                        index_flat = masked_percentile_index.flatten() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
+                        masked_summary = masked_sorted.flatten()[index_flat].reshape(numpy.shape(masked_percentile_index))
+                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
                         del masked_percentile_index
 
                     elif statistic == Statistic.PERCENTILE_90:
+                        percent = 0.90
                         if masked_sorted is None:
                             masked_sorted = numpy.ma.sort(masked_stack, axis=0)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * 0.90).astype(numpy.int16)
-                        masked_summary = numpy.ma.choose(masked_percentile_index, masked_sorted)
+                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
+                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
+                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
+                        index_flat = masked_percentile_index.flatten() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
+                        masked_summary = masked_sorted.flatten()[index_flat].reshape(numpy.shape(masked_percentile_index))
+                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
                         del masked_percentile_index
 
                     elif statistic == Statistic.PERCENTILE_95:
+                        percent = 0.95
                         if masked_sorted is None:
                             masked_sorted = numpy.ma.sort(masked_stack, axis=0)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * 0.95).astype(numpy.int16)
-                        masked_summary = numpy.ma.choose(masked_percentile_index, masked_sorted)
+                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
+                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
+                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
+                        index_flat = masked_percentile_index.flatten() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
+                        masked_summary = masked_sorted.flatten()[index_flat].reshape(numpy.shape(masked_percentile_index))
+                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
                         del masked_percentile_index
 
                     _log.debug("masked summary is [%s]", masked_summary)

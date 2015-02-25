@@ -67,7 +67,7 @@ def main():
     # do_list_tiles_by_xy_single_csv(config)
     # do_list_cells_by_xy_single_csv(config)
 
-    do_list_dataset_paths(config, x=[146], y=[-34], satellites=[Satellite.LS5, Satellite.LS7], dataset_types=[DatasetType.FC25])
+    do_list_dataset_paths(config, x=[123], y=[-25], satellites=[Satellite.LS5, Satellite.LS7], dataset_types=[DatasetType.FC25])
 
 
 def do_list_dataset_paths(config,

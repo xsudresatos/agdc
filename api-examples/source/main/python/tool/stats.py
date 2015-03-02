@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import gc
+
 import gdal
 from gdalconst import GA_ReadOnly
 import logging
@@ -10,45 +10,23 @@ import sys
 
 _log = logging.getLogger()
 
-# IS_MAC = False
-#
-# INDEX_FILE = "/g/data/u46/sjo/tmp/time_series_stats_optimisation/LS57_123_-025.txt"
-#
-# MB_FACTOR = 1024
-
 
 def run():
 
-    # log_mem("Before allocate array")
-    #
-    # pixels = numpy.random.rand(4000, 4000, 6)
-    # _log.info("pixels takes up [%d] MB", pixels.nbytes / 1024 / 1024)
-    # log_mem("After allocated array")
-    #
-    # del pixels
-    #
-    # log_mem("After del pixels")
-    #
-    # return
-
     log_mem("Starting")
-
-    # data = numpy.zeros((1000, 4000, 4000), dtype=numpy.int16)
-    # # data = numpy.random.rand(1000, 4000, 4000)
-    # _log.info("data takes up [%d] MB", data.nbytes / 1024 / 1024)
-    #
-    # log_mem("About to del data")
-    #
-    # del data
-
-    # data = numpy.empty((4000, 4000), dtype=numpy.int16)
-    # _log.info("data takes up [%d] MB", data.nbytes / 1024 / 1024)
 
     stack = list()
     log_mem("Allocated list")
 
     projection = None
     transform = None
+
+    log_mem("About to create raster")
+
+    driver = gdal.GetDriverByName("GTiff")
+
+    rasterout = driver.Create("out.tif", 4000, 4000, 8, gdal.GDT_Int16)
+    assert rasterout
 
     with open(INDEX_FILE, "r") as index:
         for f in index:
@@ -65,18 +43,11 @@ def run():
 
             band = raster.GetRasterBand(1)
 
-            # data = band.ReadAsArray()
-
             data = band.ReadAsArray(0, 0, 500, 4000)
 
             _log.info("data takes up [%d] MB", data.nbytes / 1024 / 1024)
 
-            # data = numpy.ma.masked_equal(data, -999, copy=False)
-
             log_mem("After read before del")
-
-            # band.FlushCache()
-            # raster.FlushCache()
 
             stack.append(data)
 
@@ -85,103 +56,73 @@ def run():
                 transform = raster.GetGeoTransform()
 
             del data, band, raster
-            # data = band = raster = None
-
-            # # band.ReadAsArray(0, 0, 4000, 4000, buf_obj=data)
-            # # _log.info("data takes up [%d] MB", data.nbytes / 1024 / 1024)
-            # #
-            # # log_mem("After read before del")
-            # #
-            # # band.FlushCache()
-            # # raster.FlushCache()
-            #
-            # del band, raster
-
-            # gc.collect()
 
             log_mem("After del")
 
-    #stack2 = numpy.ma.masked_equal(stack, -999, copy=False)
+    log_mem("About to set the meta data on the raster")
 
-    #stack = numpy.memmap("x", stack2.dtype, mode="w+", shape=numpy.shape(stack2))
+    rasterout.SetProjection(projection)
+    rasterout.SetGeoTransform(transform)
+    rasterout.SetMetadata({"STATISTIC": "COUNT MIN MAX MEAN MEDIAN PERCENTILE_75 PERCENTILE_90 PERCENTILE_95"})
 
-    #stack[:] = stack2[:]
-
-    #del stack2
+    log_mem("About to apply mask to the stack")
 
     stack = numpy.ma.masked_equal(stack, -999, copy=False)
 
-    log_mem("Before calculate statistic")
+    log_mem("About to calculate COUNT")
 
-    # summary = numpy.ma.count(stack, axis=0)
-    # summary = numpy.min(stack, axis=0)
-    # summary = numpy.max(stack, axis=0)
-    # summary = numpy.mean(stack, axis=0)
-    # summary = numpy.median(stack, axis=0)
+    summary = numpy.ma.count(stack, axis=0)
+    write_band(rasterout, 1, "COUNT", summary)
+
+    summary = numpy.min(stack, axis=0)
+    write_band(rasterout, 2, "MIN", summary)
+
+    summary = numpy.max(stack, axis=0)
+    write_band(rasterout, 3, "MAX", summary)
+
+    summary = numpy.mean(stack, axis=0)
+    write_band(rasterout, 4, "MEAN", summary)
+
+    summary = numpy.median(stack, axis=0)
+    write_band(rasterout, 5, "MEDIAN", summary)
+
     # summary = numpy.sum(stack, axis=0)
+    # write_band(raster, 6, "SUM", summary)
 
-    log_mem("Before convert to float16")
     stack = numpy.ndarray.astype(stack, dtype=numpy.float16, copy=False)
-    log_mem("Before fill with NaN")
     stack = stack.filled(numpy.nan)
-    log_mem("Before percentile")
-    summary = numpy.nanpercentile(stack, 0.95, axis=0, interpolation='lower')
-    log_mem("Before convert back to int16")
+
+    summary = numpy.nanpercentile(stack, 0.75, axis=0, interpolation='lower')
     summary = numpy.ndarray.astype(summary, dtype=numpy.int16, copy=False)
+    write_band(rasterout, 6, "PERCENTILE_75", summary)
+
+    summary = numpy.nanpercentile(stack, 0.90, axis=0, interpolation='lower')
+    summary = numpy.ndarray.astype(summary, dtype=numpy.int16, copy=False)
+    write_band(rasterout, 7, "PERCENTILE_90", summary)
+
+    summary = numpy.nanpercentile(stack, 0.95, axis=0, interpolation='lower')
+    summary = numpy.ndarray.astype(summary, dtype=numpy.int16, copy=False)
+    write_band(rasterout, 8, "PERCENTILE_95", summary)
+
     log_mem("Done - about to del stack")
 
-#    log_mem("Before sort")
-#    #stack = numpy.ma.sort(stack, axis=0)
-#    numpy.ndarray.sort(stack, axis=0)
-#    log_mem("Before calculate index")
-#    index = numpy.ma.floor(numpy.ma.count(stack, axis=0) * 0.95).astype(numpy.int16)
-#    log_mem("Before flatten index")
-#    index_flat = index.ravel() * index.size + numpy.arange(index.size)
-#    log_mem("Before extract using index")
-#    summary = stack.ravel()[index_flat].reshape(numpy.shape(index))
-#    log_mem("After calculate statistic")
+    del stack, summary, rasterout
 
-    del stack
+    log_mem("Finished")
 
-    log_mem("After calculate statistic and del")
 
-    driver = gdal.GetDriverByName("GTiff")
+def write_band(raster, band_number, band_name, summary):
 
-    raster = driver.Create("out.tif", 4000, 4000, 1, gdal.GDT_Int16)
-
-    raster.SetProjection(projection)
-    raster.SetGeoTransform(transform)
-    #raster.SetMetadata({"STATISTIC": "COUNT"})
-    raster.SetMetadata({"STATISTIC": "PERCENTILE 95"})
-
-    band = raster.GetRasterBand(1)
+    band = raster.GetRasterBand(band_number)
 
     band.SetNoDataValue(-999)
-    band.SetMetadataItem("BAND_ID", "COUNT")
+    band.SetMetadataItem("BAND_ID", band_name)
     band.WriteArray(summary)
     band.ComputeStatistics(True)
 
     band.FlushCache()
     raster.FlushCache()
 
-    # del summary, stack
-    del summary
-
-    del band, raster
-
-    log_mem("Finished")
-
-
-# def log_mem(s=None):
-#     if IS_MAC:
-#         import resource
-#
-#         if s and len(s) > 0:
-#             _log.debug(s)
-#
-#         _log.debug("Current MAX RSS  usage is [%d] MB", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / MB_FACTOR)
-#     else:
-#         import psutil
 
 def log_mem(s=None):
 
@@ -192,6 +133,10 @@ def log_mem(s=None):
 
     _log.debug("Current memory usage is [%s]", psutil.Process().memory_info())
     _log.debug("Current memory usage is [%d] MB", psutil.Process().memory_info().rss / 1024 / 1024)
+
+    import resource
+
+    _log.debug("Current MAX RSS  usage is [%d] MB", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / MB_FACTOR)
 
 
 if __name__ == '__main__':

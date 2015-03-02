@@ -67,7 +67,13 @@ def main():
     # do_list_tiles_by_xy_single_csv(config)
     # do_list_cells_by_xy_single_csv(config)
 
-    do_list_dataset_paths(config, x=[123], y=[-25], satellites=[Satellite.LS5, Satellite.LS7], dataset_types=[DatasetType.FC25])
+    # These are my test cells
+
+    do_list_dataset_paths(config, x=[120], y=[-20], satellites=[Satellite.LS5, Satellite.LS7, Satellite.LS8], dataset_types=[DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25, DatasetType.WATER, DatasetType.DEM, DatasetType.DEM_HYDROLOGICALLY_ENFORCED, DatasetType.DEM_SMOOTHED, DatasetType.DSM])
+    do_list_dataset_paths(config, x=[123], y=[-25], satellites=[Satellite.LS5, Satellite.LS7, Satellite.LS8], dataset_types=[DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25, DatasetType.WATER, DatasetType.DEM, DatasetType.DEM_HYDROLOGICALLY_ENFORCED, DatasetType.DEM_SMOOTHED, DatasetType.DSM])
+    do_list_dataset_paths(config, x=[135], y=[-18], satellites=[Satellite.LS5, Satellite.LS7, Satellite.LS8], dataset_types=[DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25, DatasetType.WATER, DatasetType.DEM, DatasetType.DEM_HYDROLOGICALLY_ENFORCED, DatasetType.DEM_SMOOTHED, DatasetType.DSM])
+    # do_list_dataset_paths(config, x=[142], y=[-22], satellites=[Satellite.LS5, Satellite.LS7, Satellite.LS8], dataset_types=[DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25, DatasetType.WATER, DatasetType.DEM, DatasetType.DEM_HYDROLOGICALLY_ENFORCED, DatasetType.DEM_SMOOTHED, DatasetType.DSM])
+    # do_list_dataset_paths(config, x=[146], y=[-34], satellites=[Satellite.LS5, Satellite.LS7, Satellite.LS8], dataset_types=[DatasetType.ARG25, DatasetType.PQ25, DatasetType.FC25, DatasetType.WATER, DatasetType.DEM, DatasetType.DEM_HYDROLOGICALLY_ENFORCED, DatasetType.DEM_SMOOTHED, DatasetType.DSM])
 
 
 def do_list_dataset_paths(config,

@@ -498,14 +498,12 @@ class SummariseDatasetTimeSeriesStatistics():
                     _log.debug("Just NONE-ed the stack")
                     _log.debug("Current MAX RSS  usage is [%d] MB", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
 
-                masked_sorted = None
-
                 for statistic in self.statistics:
                     _log.info("Calculating statistic [%s]", statistic.name)
 
                     if statistic == Statistic.COUNT:
                         # TODO Need to artificially create masked array here since it is being expected/filled below!!!
-                        masked_summary = numpy.ma.masked_equal(masked_stack.count(axis=0), ndv)
+                        masked_summary = numpy.ma.masked_equal(masked_stack.count(axis=0), ndv, copy=False)
 
                     elif statistic == Statistic.MIN:
                         masked_summary = numpy.min(masked_stack, axis=0)
@@ -529,64 +527,44 @@ class SummariseDatasetTimeSeriesStatistics():
                         masked_summary = numpy.var(masked_stack, axis=0)
 
                     elif statistic == Statistic.PERCENTILE_25:
-                        percent = 0.25
-                        if masked_sorted is None:
-                            numpy.ndarray.sort(masked_stack, axis=0)
-                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
-                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
-                        index_flat = masked_percentile_index.ravel() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
-                        masked_summary = masked_sorted.ravel()[index_flat].reshape(numpy.shape(masked_percentile_index))
-                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
-                        del masked_percentile_index
+                        percent = 25
+                        if masked_stack.dtype != numpy.float16:
+                            masked_stack = numpy.ndarray.astype(masked_stack, dtype=numpy.float16, copy=False).filled(numpy.nan)
+                        masked_summary = numpy.nanpercentile(masked_stack, percent, axis=0, interpolation='lower')
+                        masked_summary = numpy.ma.masked_invalid(masked_summary)
+			masked_summary = numpy.ndarray.astype(masked_summary, dtype=numpy.int16, copy=False)
 
                     elif statistic == Statistic.PERCENTILE_50:
-                        percent = 0.50
-                        if masked_sorted is None:
-                            numpy.ndarray.sort(masked_stack, axis=0)
-                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
-                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
-                        index_flat = masked_percentile_index.ravel() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
-                        masked_summary = masked_sorted.ravel()[index_flat].reshape(numpy.shape(masked_percentile_index))
-                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
-                        del masked_percentile_index
+                        percent = 50
+                        if masked_stack.dtype != numpy.float16:
+                            masked_stack = numpy.ndarray.astype(masked_stack, dtype=numpy.float16, copy=False).filled(numpy.nan)
+                        masked_summary = numpy.nanpercentile(masked_stack, percent, axis=0, interpolation='lower')
+                        masked_summary = numpy.ma.masked_invalid(masked_summary)
+			masked_summary = numpy.ndarray.astype(masked_summary, dtype=numpy.int16, copy=False)
 
                     elif statistic == Statistic.PERCENTILE_75:
-                        percent = 0.75
-                        if masked_sorted is None:
-                            numpy.ndarray.sort(masked_stack, axis=0)
-                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
-                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
-                        index_flat = masked_percentile_index.ravel() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
-                        masked_summary = masked_sorted.ravel()[index_flat].reshape(numpy.shape(masked_percentile_index))
-                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
-                        del masked_percentile_index
+                        percent = 75
+                        if masked_stack.dtype != numpy.float16:
+                            masked_stack = numpy.ndarray.astype(masked_stack, dtype=numpy.float16, copy=False).filled(numpy.nan)
+                        masked_summary = numpy.nanpercentile(masked_stack, percent, axis=0, interpolation='lower')
+                        masked_summary = numpy.ma.masked_invalid(masked_summary)
+			masked_summary = numpy.ndarray.astype(masked_summary, dtype=numpy.int16, copy=False)
 
                     elif statistic == Statistic.PERCENTILE_90:
-                        percent = 0.90
-                        if masked_sorted is None:
-                            numpy.ndarray.sort(masked_stack, axis=0)
-                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
-                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
-                        index_flat = masked_percentile_index.ravel() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
-                        masked_summary = masked_sorted.ravel()[index_flat].reshape(numpy.shape(masked_percentile_index))
-                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
-                        del masked_percentile_index
+                        percent = 90
+                        if masked_stack.dtype != numpy.float16:
+                            masked_stack = numpy.ndarray.astype(masked_stack, dtype=numpy.float16, copy=False).filled(numpy.nan)
+                        masked_summary = numpy.nanpercentile(masked_stack, percent, axis=0, interpolation='lower')
+                        masked_summary = numpy.ma.masked_invalid(masked_summary)
+			masked_summary = numpy.ndarray.astype(masked_summary, dtype=numpy.int16, copy=False)
 
                     elif statistic == Statistic.PERCENTILE_95:
-                        percent = 0.95
-                        if masked_sorted is None:
-                            numpy.ndarray.sort(masked_stack, axis=0)
-                        _log.info("masked_sorted [%s] [%s]", numpy.shape(masked_sorted), masked_sorted)
-                        masked_percentile_index = numpy.ma.floor(numpy.ma.count(masked_sorted, axis=0) * percent).astype(numpy.int16)
-                        _log.info("masked_percentile_index [%s] [%s]", numpy.shape(masked_percentile_index), masked_percentile_index)
-                        index_flat = masked_percentile_index.ravel() * masked_percentile_index.size + numpy.arange(masked_percentile_index.size)
-                        masked_summary = masked_sorted.ravel()[index_flat].reshape(numpy.shape(masked_percentile_index))
-                        _log.info("masked_summary [%s] [%s]", numpy.shape(masked_summary), masked_summary)
-                        del masked_percentile_index
+                        percent = 95
+                        if masked_stack.dtype != numpy.float16:
+                            masked_stack = numpy.ndarray.astype(masked_stack, dtype=numpy.float16, copy=False).filled(numpy.nan)
+                        masked_summary = numpy.nanpercentile(masked_stack, percent, axis=0, interpolation='lower')
+                        masked_summary = numpy.ma.masked_invalid(masked_summary)
+			masked_summary = numpy.ndarray.astype(masked_summary, dtype=numpy.int16, copy=False)
 
                     _log.debug("masked summary is [%s]", masked_summary)
                     _log.debug("Current MAX RSS  usage is [%d] MB", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
@@ -610,7 +588,7 @@ class SummariseDatasetTimeSeriesStatistics():
                     _log.info("Setting no data value for band [%s] which has index [%d]", statistic.name, self.statistics.index(statistic) + 1)
                     raster.GetRasterBand(self.statistics.index(statistic) + 1).SetNoDataValue(ndv)
 
-                    raster.GetRasterBand(self.statistics.index(statistic) + 1).SetMetadataItem("BAND_ID", statistic.name)
+                    raster.GetRasterBand(self.statistics.index(statistic) + 1).SetDescription(statistic.name)
 
                     _log.info("Writing band [%s] data to raster [%s]", band.name, paths[band])
                     _log.debug("Current MAX RSS  usage is [%d] MB", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
@@ -621,6 +599,7 @@ class SummariseDatasetTimeSeriesStatistics():
                     raster.GetRasterBand(self.statistics.index(statistic) + 1).WriteArray(masked_summary.filled(ndv), xoff=x, yoff=y)
                     raster.GetRasterBand(self.statistics.index(statistic) + 1).ComputeStatistics(True)
 
+                    raster.GetRasterBand(self.statistics.index(statistic) + 1).FlushCache()
                     raster.FlushCache()
 
                     if masked_summary is not None:
@@ -631,11 +610,6 @@ class SummariseDatasetTimeSeriesStatistics():
                 if masked_stack is not None:
                     del masked_stack
                     _log.debug("NONE-ing masked stack[%s]", band.name)
-                    _log.debug("Current MAX RSS  usage is [%d] MB", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
-
-                if masked_sorted is not None:
-                    del masked_sorted
-                    _log.debug("NONE-ing masked sorted[%s]", band.name)
                     _log.debug("Current MAX RSS  usage is [%d] MB", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
 
             if raster:

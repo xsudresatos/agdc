@@ -392,7 +392,7 @@ class TimeSeriesRetrievalWorkflow():
         elif dataset_type == DatasetType.WATER:
             dataset_str += "WOFS"
 
-        if self.apply_pqa_filter:
+        if self.mask_pqa_apply:
             dataset_str += "_WITH_PQA"
 
         return os.path.join(self.output_directory,

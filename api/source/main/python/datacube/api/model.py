@@ -26,7 +26,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # ===============================================================================
-import os
 
 
 __author__ = "Simon Oldfield"
@@ -34,6 +33,7 @@ __author__ = "Simon Oldfield"
 
 import logging
 from enum import Enum
+import os
 
 
 _log = logging.getLogger(__name__)
@@ -199,7 +199,12 @@ class DatasetTile:
         self.satellite = satellite_id and Satellite[satellite_id] or None
         self.dataset_type = DatasetType[type_id]
         self.path = warp_file_paths(path)
-        self.bands = BANDS[(self.dataset_type, self.satellite)]
+
+        # TODO ???
+        if (self.dataset_type, self.satellite) in BANDS:
+            self.bands = BANDS[(self.dataset_type, self.satellite)]
+        elif (self.dataset_type, None) in BANDS:
+            self.bands = BANDS[(self.dataset_type, None)]
 
     @staticmethod
     def from_db_array(satellite_id, datasets):
@@ -434,7 +439,8 @@ def make_wofs_dataset(satellite_id, nbar):
 
         dt = fields[5].replace(".vrt", "").replace(".tif", "")
 
-    path = "/g/data/u46/wofs/water_f7q/extents/{x:03d}_{y:04d}/{satellite}_{sensor}_WATER_{x:03d}_{y:04d}_{date}.tif".format(x=x, y=y, satellite=satellite, sensor=sensor, date=dt)
+    # path = "/g/data/u46/wofs/water_f7q/extents/{x:03d}_{y:04d}/{satellite}_{sensor}_WATER_{x:03d}_{y:04d}_{date}.tif".format(x=x, y=y, satellite=satellite, sensor=sensor, date=dt)
+    path = "/g/data/u46/sjo/geoserver/wofs_f7q/extents/{x:03d}_{y:04d}/{satellite}_{sensor}_WATER_{x:03d}_{y:04d}_{date}.tif".format(x=x, y=y, satellite=satellite, sensor=sensor, date=dt)
 
     if os.path.isfile(path):
         return DatasetTile(satellite, DatasetType.WATER.value, path)
